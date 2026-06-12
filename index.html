@@ -180,9 +180,25 @@ window.__loadAllData = function(){
       if(parsed.name) playersData[parsed.name] = parsed.matches;
     });
 
-    // global "matchs joués" = matches with a filled "resultats" cell (same fixtures for everyone)
+    // "matchs joués" = matches dont la date est aujourd'hui ou avant (mêmes fixtures pour tout le monde)
     var refMatches = playersData[Object.keys(playersData)[0]] || [];
-    var nMatchsJoues = refMatches.filter(function(m){ return m.resultats && m.resultats!=='...'; }).length;
+    var today = new Date().toISOString().slice(0,10);
+    var playedDates = []; // dates <= aujourd'hui, triées, avec au moins un match
+    (function(){
+      var set = {};
+      refMatches.forEach(function(m){ if(m.date && m.date<=today) set[m.date]=true; });
+      playedDates = Object.keys(set).sort();
+    })();
+    var nMatchsJoues = refMatches.filter(function(m){ return m.date && m.date<=today; }).length;
+    var prevJournee = playedDates.length>=2 ? playedDates[playedDates.length-2] : null;
+    var lastJournee = playedDates.length>=1 ? playedDates[playedDates.length-1] : null;
+
+    function cumPointsAt(matches, uptoDate){
+      if(!uptoDate) return 0;
+      var s=0;
+      matches.forEach(function(m){ if(m.date && m.date<=uptoDate) s += (m.points||0) + (m.booster_pts||0); });
+      return s;
+    }
 
     var avgCorrect = classement.length
       ? classement.reduce(function(s,e){return s+(e.nbr_prono_exact||0);},0) / classement.length
@@ -192,6 +208,7 @@ window.__loadAllData = function(){
       var matches = playersData[e.name] || [];
       var qualif_points = qualifMap[e.name] || 0;
       var booster_points = matches.reduce(function(s,m){return s+(m.booster_pts||0);}, 0);
+      var boosters_used = matches.filter(function(m){ return m.booster && m.booster!=='' && m.booster!=='...'; }).length;
       var total_points = (e.points||0) + qualif_points + booster_points;
       var risk = computeRisk(matches, team_info);
       var missedPronos = matches.filter(function(m){ var p=(m.prono||'').trim(); return !p || p==='...'; }).length;
@@ -202,17 +219,32 @@ window.__loadAllData = function(){
         basePoints: e.points||0,
         qualifPoints: qualif_points,
         boosters: booster_points,
+        boostersUsed: boosters_used,
         correct: e.nbr_prono_exact||0,
         exact: e.nbr_score_exact||0,
         audace: Math.round(clamp(50 + risk.avgRisk*16.7, 0, 100)),
         adjR: Math.round(clamp((e.nbr_prono_exact - avgCorrect) * 14, -85, 52)),
         missedPronos: missedPronos,
         nMatchs: nMatchsJoues,
-        matches: matches
+        matches: matches,
+        _ptsNow: qualif_points + cumPointsAt(matches, lastJournee),
+        _ptsPrev: qualif_points + cumPointsAt(matches, prevJournee)
       };
     });
 
-    return { players: out, nMatchs: nMatchsJoues };
+    // classement à la journée précédente -> delta de rang
+    if(prevJournee){
+      var byNow = out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
+      var byPrev = out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
+      var rankNow={}, rankPrev={};
+      byNow.forEach(function(p,i){rankNow[p.name]=i+1;});
+      byPrev.forEach(function(p,i){rankPrev[p.name]=i+1;});
+      out.forEach(function(p){ p.delta = rankPrev[p.name]-rankNow[p.name]; });
+    } else {
+      out.forEach(function(p){ p.delta = 0; });
+    }
+
+    return { players: out, nMatchs: nMatchsJoues, playedDates: playedDates };
   });
 };
 
@@ -271,16 +303,18 @@ window.__loadAllData = function(){
     var nm=useState(0);var nMatchs=nm[0],setNMatchs=nm[1];
     var ts=useState("Classement");var tab=ts[0],setTab=ts[1];
     var fs=useState([]);var focused=fs[0],setFocused=fs[1];
+    var pd=useState([]);var playedDates=pd[0],setPlayedDates=pd[1];
 
     useEffect(function(){
       window.__loadAllData().then(function(result) {
         var parsed = result.players.map(function(p){
-          return Object.assign({}, p, {rank:1, rankPrev:1, delta:0});
+          return Object.assign({}, p, {rank:1, rankPrev:1});
         });
         var sorted = parsed.slice().sort(function(a,b){return b.points-a.points || b.exact-a.exact || b.correct-a.correct;});
         sorted.forEach(function(p,i){p.rank=i+1;});
         setPlayers(sorted);
         setNMatchs(result.nMatchs);
+        setPlayedDates(result.playedDates||[]);
         setLoading(false);
       }).catch(function(e){
         setError('Erreur de chargement : ' + e.message + '. Vérifiez que le sheet est accessible publiquement.');
@@ -391,9 +425,7 @@ window.__loadAllData = function(){
                 {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕ tout afficher</span></button>}
               </div>
               {(function(){
-                var dateSet={};
-                (players||[]).forEach(function(p){ (p.matches||[]).forEach(function(m){ if(m.date) dateSet[m.date]=true; }); });
-                var dates=Object.keys(dateSet).sort();
+                var dates=playedDates;
                 if(dates.length===0) return <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.1em"}}>À compléter une fois des matchs joués.</p>;
                 var chartData=dates.map(function(d){
                   var row={date:d.slice(5)};
