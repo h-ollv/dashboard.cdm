@@ -54,19 +54,6 @@ function fetchSheet(name){
   });
 }
 
-function parseTeamInfo(rows){
-  var ti={};
-  [1,7,13].forEach(function(hi){
-    [1,4,7,10].forEach(function(s){
-      for(var r=hi+1;r<=hi+4;r++){
-        var rw=rows[r]||[],rank=rw[s],team=rw[s+1];
-        if(team) ti[norm(team)]={rank:Number(rank),name:String(team).trim()};
-      }
-    });
-  });
-  return ti;
-}
-
 function parseClassement(rows){
   var cl=[],qm={},mode='main';
   for(var i=1;i<80&&i<rows.length;i++){
@@ -76,62 +63,46 @@ function parseClassement(rows){
     if(name==='Joueurs') continue;
     var n=String(name).trim();
     if(mode==='main') cl.push({name:n,correct:toNum(r[2]),exact:toNum(r[3]),points:toNum(r[4])});
-    else qm[n]=toNum(r[2]); /* qualif pts sont en colonne C dans la section qualif */
+    else qm[n]=toNum(r[2]);
   }
   return{classement:cl,qualifMap:qm};
 }
 
 function parsePlayerSheet(rows){
-  /* Ligne 0 : r[1] = "Joueur : Joris" */
   var name=(rows[0]&&rows[0][1])||'';
   if(typeof name==='string'&&name.indexOf('Joueur :')===0) name=name.replace('Joueur :','').trim();
-
   var matches=[],block=[],curPoule=null;
-
   function flush(){
     if(!block.length) return;
-    /* Construire le mapping Equipe letter → nom équipe */
     var teams={};
     block.forEach(function(r){
       if(r[0]&&typeof r[0]==='string'&&r[0].indexOf('Equipe')===0&&r[1])
         teams[r[0].replace('Equipe','').trim()]=String(r[1]).trim();
     });
     block.forEach(function(r){
-      var rencontre=r[4]; /* col E = r[4] = "A vs C" */
+      var rencontre=r[4];
       if(!rencontre||typeof rencontre!=='string'||rencontre.indexOf(' vs ')<0) return;
       var parts=rencontre.split(' vs ').map(function(s){return s.trim();});
-      var ta=teams[parts[0]],tb=teams[parts[1]];
-
-      var prono        =(r[5] ||'').toString().trim(); /* F = prono joueur */
-      var scorePred    =(r[6] ||'').toString().trim(); /* G = score prédit */
-      var boosterLabel =(r[7] ||'').toString().trim(); /* H = label booster (B1, B3…) */
-      var cote         =(r[8] ||'').toString().trim(); /* I = côte ("1-3", "2-3"…) */
-      var vainqueur    =(r[9] ||'').toString().trim(); /* J = vainqueur réel (A/B/N quand joué, "…" sinon) */
-      var resultScore  =(r[10]||'').toString().trim(); /* K = score réel "2-1" */
+      var prono        =(r[5] ||'').toString().trim(); /* F */
       var boosterOui   =(r[11]||'').toString().trim().toLowerCase(); /* L = "oui" si booster validé */
-      var pts          = toNum(r[12]);                 /* M = points totaux du match (booster déjà inclus) */
-
-      /* Match joué = col J (vainqueur) remplie avec autre chose que "…" */
-      var played=vainqueur!==''&&vainqueur!=='...'&&vainqueur!=='null';
-
-      /* Pari correct = prono === vainqueur (quand match joué) */
-      var correct=played&&prono!==''&&prono!=='...'&&prono===vainqueur;
-
-      /* Booster validé = col L contient "oui" → +50 pts (pour affichage seulement, déjà dans pts) */
-      var booster_pts=boosterOui==='oui'?50:0;
-
+      var vainqueur    =(r[9] ||'').toString().trim(); /* J = A/B/N quand joué, "…" sinon */
+      var played       = vainqueur!==''&&vainqueur!=='...'&&vainqueur!=='null';
+      var correct      = played&&prono!==''&&prono!=='...'&&prono===vainqueur;
+      var booster_pts  = boosterOui==='oui'?50:0; /* pour affichage, déjà inclus dans r[12] */
       matches.push({
-        poule:curPoule,date:r[3]||null,match:rencontre,
-        team_a:ta||null,team_a_n:ta?norm(ta):null,
-        team_b:tb||null,team_b_n:tb?norm(tb):null,
-        prono:prono,scorePred:scorePred,
-        boosterLabel:boosterLabel,booster_pts:booster_pts,
-        cote:cote,vainqueur:vainqueur,resultScore:resultScore,
-        played:played,correct:correct,points:pts
+        poule:curPoule, date:r[3]||null, match:rencontre,
+        team_a:teams[parts[0]]||null, team_a_n:teams[parts[0]]?norm(teams[parts[0]]):null,
+        team_b:teams[parts[1]]||null, team_b_n:teams[parts[1]]?norm(teams[parts[1]]):null,
+        prono:prono,
+        cote:(r[8]||'').toString().trim(), /* I = "1-3", "2-3", "nul"… */
+        vainqueur:vainqueur, resultScore:(r[10]||'').toString().trim(),
+        boosterLabel:(r[7]||'').toString().trim(),
+        booster_pts:booster_pts,
+        played:played, correct:correct,
+        points:toNum(r[12]) /* M = pts totaux match, boosters déjà inclus */
       });
     });
   }
-
   for(var i=5;i<rows.length;i++){
     var rw=rows[i]||[];
     if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){flush();block=[];curPoule=rw[0];continue;}
@@ -141,35 +112,47 @@ function parsePlayerSheet(rows){
   return{name:name.trim()||null,matches:matches};
 }
 
-/* ── Audace & réussite ajustée ──
-   SAFE=0 | MS=25 | NUL_eq=0 | NUL_dés=50 | MR=75 | RISQUÉ=100
-   Proba attendue : SAFE=72% | MS=56% | NUL_eq=26% | NUL_dés=15% | MR=40% | RISQUÉ=20% */
-function getAP(m,ti){
+/*
+  AUDACE via colonne côte (I = r[8]) — lecture directe, sans besoin de team_info.
+  Format côte : "X-Y" = joueur a parié rang X gagne sur rang Y
+    Y-X ≥ 2  → SAFE    (favori ≥2 rangs)  aud=0,  p=72%
+    Y-X = 1  → MS      (favori 1 rang)    aud=25, p=56%
+    Y-X = 0  → MS      (égaux)            aud=25, p=50%
+    Y-X = -1 → MR      (outsider 1 rang)  aud=75, p=40%
+    Y-X ≤ -2 → RISQUÉ  (outsider ≥2 rang) aud=100,p=20%
+  Côte "nul" → NUL déséquilibré par défaut : aud=50, p=15%
+*/
+function getAP(m){
   var prono=m.prono;
-  if(!prono||prono==='...'||!m.team_a_n||!m.team_b_n) return null;
-  var wa=ti[m.team_a_n],wb=ti[m.team_b_n];
-  if(!wa||!wb) return null;
+  if(!prono||prono==='...') return null;
+  var cote=(m.cote||'').toLowerCase().trim();
+  if(!cote||cote==='...') return null;
+  /* NUL */
   if(prono.toUpperCase()==='N'){
-    var df=Math.abs(wa.rank-wb.rank);
-    return df<=1?{a:0,p:0.26}:{a:50,p:0.15};
+    if(cote==='nul') return{a:50,p:0.15};
+    /* si côte encode la rencontre quand même */
+    var np=cote.split('-').map(Number);
+    if(np.length===2&&!isNaN(np[0])&&!isNaN(np[1])){
+      return Math.abs(np[1]-np[0])<=1?{a:0,p:0.26}:{a:50,p:0.15};
+    }
+    return{a:50,p:0.15};
   }
-  var pts=m.match.split(' vs ').map(function(s){return s.trim();});
-  var wk=prono===pts[0]?m.team_a_n:prono===pts[1]?m.team_b_n:null;
-  if(!wk) return null;
-  var lk=wk===m.team_a_n?m.team_b_n:m.team_a_n;
-  var w=ti[wk],l=ti[lk];if(!w||!l) return null;
-  var d=w.rank-l.rank;
-  if(d<=-2)return{a:0,  p:0.72};
-  if(d===-1)return{a:25, p:0.56};
-  if(d===0) return{a:25, p:0.50};
-  if(d===1) return{a:75, p:0.40};
-  return      {a:100,p:0.20};
+  /* Non-NUL : côte = "gagnant_rang-perdant_rang" */
+  if(cote==='nul') return null; /* incohérent */
+  var cp=cote.split('-').map(Number);
+  if(cp.length!==2||isNaN(cp[0])||isNaN(cp[1])) return null;
+  var diff=cp[1]-cp[0]; /* positif = pari sur le favori */
+  if(diff>=2)  return{a:0,  p:0.72};
+  if(diff===1) return{a:25, p:0.56};
+  if(diff===0) return{a:25, p:0.50};
+  if(diff===-1)return{a:75, p:0.40};
+  return          {a:100,p:0.20};
 }
 
-function computeRisk(matches,ti){
+function computeRisk(matches){
   var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
   matches.forEach(function(m){
-    var ap=getAP(m,ti);if(!ap)return;
+    var ap=getAP(m);if(!ap)return;
     aSum+=ap.a;aCnt++;
     if(m.played){actS+=m.correct?1:0;expS+=ap.p;pCnt++;}
   });
@@ -180,32 +163,33 @@ function computeRisk(matches,ti){
 }
 
 window.__loadAllData=function(){
+  /* Plus besoin de fetcher Equipes — côte lue directement depuis les onglets joueurs */
   return Promise.all(
-    [fetchSheet('Equipes'),fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet))
+    [fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet))
   ).then(function(results){
-    var ti=parseTeamInfo(results[0]);
-    var parsed=parseClassement(results[1]);
+    var parsed=parseClassement(results[0]);
     var classement=parsed.classement,qualifMap=parsed.qualifMap;
 
     var pData={};
-    results.slice(2).forEach(function(rows){
+    results.slice(1).forEach(function(rows){
       var p=parsePlayerSheet(rows);
       if(p.name) pData[norm(p.name)]=p.matches;
     });
 
-    /* Référence pour les dates/journées */
     var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
     var refM=pData[refKey]||[];
 
-    /* nMatchsJoues = matchs où col J (vainqueur) est remplie */
+    /* nMatchsJoues = lignes avec vainqueur rempli (col J) */
     var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
 
-    /* Grouper par date */
+    /* Journées */
     var byDate={};
     refM.forEach(function(m){if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
     var allDates=Object.keys(byDate).sort();
-    var playedDates=allDates.filter(function(d){return byDate[d].some(function(m){return m.played;});});
+    var playedDates  =allDates.filter(function(d){return byDate[d].some(function(m){return m.played;});});
     var completedDates=allDates.filter(function(d){return byDate[d].length>0&&byDate[d].every(function(m){return m.played;});});
+
+    /* Pour le delta de rang : comparer dernière journée complète vs avant-dernière */
     var dFD=completedDates.length>0?completedDates:playedDates;
     var lastJ=dFD.length>0?dFD[dFD.length-1]:null;
     var prevJ=dFD.length>1?dFD[dFD.length-2]:null;
@@ -218,25 +202,23 @@ window.__loadAllData=function(){
     var out=classement.map(function(e){
       var matches=pData[norm(e.name)]||[];
       var qualif_pts=qualifMap[e.name]||0;
-      /* e.points inclut DÉJÀ les boosters — on ajoute seulement les qualif */
-      var total_points=(e.points||0)+qualif_pts;
-      /* booster_pts = pour affichage uniquement (somme des +50 des parions boostés corrects) */
+      var total_points=(e.points||0)+qualif_pts; /* e.points inclut déjà les boosters */
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
-      var risk=computeRisk(matches,ti);
+      var risk=computeRisk(matches);
       var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
       return{
-        name:e.name,points:total_points,
-        correct:e.correct||0,exact:e.exact||0,
+        name:e.name, points:total_points,
+        correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace,adjR:risk.adjR,
-        missedPronos:missedPronos,nMatchs:nMatchsJoues,
+        audace:risk.audace, adjR:risk.adjR,
+        missedPronos:missedPronos, nMatchs:nMatchsJoues,
         matches:matches,
         _ptsNow:qualif_pts+cumPts(matches,lastJ),
         _ptsPrev:qualif_pts+cumPts(matches,prevJ)
       };
     });
 
-    /* Delta rang entre journée précédente et actuelle */
+    /* Delta rang : avant-dernière journée → dernière journée */
     if(prevJ){
       var bN=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
       var bP=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
@@ -318,7 +300,6 @@ window.__loadAllData=function(){
     var P0=players[0]||{name:'—',points:0};
     var bE=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
 
-    /* Progression */
     var dFP=completedDates.length>0?completedDates:playedDates;
     var enC=playedDates.filter(function(d){return completedDates.indexOf(d)<0;});
     var progDts=dFP.concat(enC.length>0?[enC[enC.length-1]+"__p"]:[]);
@@ -333,7 +314,7 @@ window.__loadAllData=function(){
     });
 
     if(loading)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p><p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p><p className="mono" style={{color:P.muted,fontSize:8,marginTop:8}}>{PLAYER_SHEETS.length} onglets</p></div></div>;
-    if(error)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}><div style={{maxWidth:500,textAlign:"center"}}><p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR</p><p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p><p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>Sheet doit être public · vérifier noms onglets dans PLAYER_SHEETS</p></div></div>;
+    if(error)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}><div style={{maxWidth:500,textAlign:"center"}}><p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR</p><p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p><p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>Sheet public requis · vérifier PLAYER_SHEETS</p></div></div>;
 
     return<div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
       <div style={{maxWidth:820,margin:"0 auto"}}>
@@ -380,7 +361,9 @@ window.__loadAllData=function(){
                 <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
                 <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
                 <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1}}>{p.name}</span>
-                {p.delta!==0?<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,width:28,textAlign:"right",flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>:<span style={{width:28,flexShrink:0}}/>}
+                {p.delta!==0
+                  ?<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,width:28,textAlign:"right",flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>
+                  :<span style={{width:28,flexShrink:0}}/>}
                 <span className="mono" style={{color:P.muted,fontSize:8,width:36,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
                 {p.boosters>0?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:48,flexShrink:0}}/>}
                 <span className="mono" style={{color:last?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
