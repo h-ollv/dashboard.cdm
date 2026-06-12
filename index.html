@@ -22,6 +22,9 @@
 <body>
 <div id="root"></div>
 <script>
+/* ═══════════════════════════════════════
+   CONFIG — ne modifier que cette section
+   ═══════════════════════════════════════ */
 var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
 var PLAYER_SHEETS = [
   "Dam's 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1",
@@ -30,26 +33,30 @@ var PLAYER_SHEETS = [
   "Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"
 ];
 
-function norm(s){
-  if(!s) return '';
-  return s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-}
+/* Règle booster : +50 pts flat sur tout pari correct avec booster activé.
+   Si la colonne L (r[11]) contient directement les pts booster, ils seront utilisés.
+   Sinon : +50 si booster activé (col H, r[7] non vide) ET pari correct (points > 0). */
+var BOOSTER_FLAT = 50;
+
+/* ═══════════════════════════════════════ */
+
+function norm(s){return s?s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim():'';}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
 
-function fetchSheet(sheetName){
-  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(sheetName);
-  return fetch(url).then(function(r){return r.text();}).then(function(text){
-    var m=text.match(/setResponse\(([\s\S]*)\);?\s*$/);
-    if(!m) throw new Error('Réponse inattendue pour "'+sheetName+'"');
+function fetchSheet(name){
+  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(name);
+  return fetch(url).then(function(r){return r.text();}).then(function(t){
+    var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
+    if(!m) throw new Error('Réponse gviz invalide pour "'+name+'"');
     var json=JSON.parse(m[1]);
     return (json.table.rows||[]).map(function(row){
       return (row.c||[]).map(function(cell){
         if(!cell||cell.v===null||cell.v===undefined) return '';
         var v=cell.v;
         if(typeof v==='string'&&v.indexOf('Date(')===0){
-          var nums=v.slice(5,-1).split(',').map(Number);
-          return new Date(nums[0],nums[1],nums[2]).toISOString().slice(0,10);
+          var n=v.slice(5,-1).split(',').map(Number);
+          return new Date(n[0],n[1],n[2]).toISOString().slice(0,10);
         }
         return v;
       });
@@ -58,39 +65,35 @@ function fetchSheet(sheetName){
 }
 
 function parseTeamInfo(rows){
-  var team_info={};
-  [1,7,13].forEach(function(headerIdx){
-    [1,4,7,10].forEach(function(start){
-      for(var r=headerIdx+1;r<=headerIdx+4;r++){
-        var row=rows[r]||[];
-        var rank=row[start],team=row[start+1];
-        if(team) team_info[norm(team)]={rank:Number(rank),name:String(team).trim()};
+  var ti={};
+  [1,7,13].forEach(function(hi){
+    [1,4,7,10].forEach(function(s){
+      for(var r=hi+1;r<=hi+4;r++){
+        var rw=rows[r]||[],rank=rw[s],team=rw[s+1];
+        if(team) ti[norm(team)]={rank:Number(rank),name:String(team).trim()};
       }
     });
   });
-  return team_info;
+  return ti;
 }
 
 function parseClassement(rows){
-  var classement=[],qualifMap={},mode='main';
+  var cl=[],qm={},mode='main';
   for(var i=1;i<70&&i<rows.length;i++){
-    var row=rows[i]||[];
-    var name=row[1];
+    var r=rows[i]||[],name=r[1];
     if(!name) continue;
     if(typeof name==='string'&&name.indexOf('Points pris')===0){mode='qualif';continue;}
     if(name==='Joueurs') continue;
-    var entry={name:String(name).trim(),nbr_prono_exact:toNum(row[2]),nbr_score_exact:toNum(row[3]),points:toNum(row[4])};
-    if(mode==='main') classement.push(entry);
-    else qualifMap[String(name).trim()]=toNum(row[4]);
+    var e={name:String(name).trim(),correct:toNum(r[2]),exact:toNum(r[3]),points:toNum(r[4])};
+    if(mode==='main') cl.push(e); else qm[String(name).trim()]=toNum(r[4]);
   }
-  return{classement:classement,qualifMap:qualifMap};
+  return{classement:cl,qualifMap:qm};
 }
 
 function parsePlayerSheet(rows){
   var name=(rows[0]&&rows[0][1])||'';
   if(typeof name==='string'&&name.indexOf('Joueur :')===0) name=name.replace('Joueur :','').trim();
   var matches=[],block=[],curPoule=null;
-
   function flush(){
     if(!block.length) return;
     var teams={};
@@ -102,100 +105,80 @@ function parsePlayerSheet(rows){
       var rencontre=r[4];
       if(!rencontre||typeof rencontre!=='string'||rencontre.indexOf(' vs ')<0) return;
       var parts=rencontre.split(' vs ').map(function(s){return s.trim();});
-      var pa=parts[0],pb=parts[1];
-      var ta=teams[pa],tb=teams[pb];
+      var ta=teams[parts[0]],tb=teams[parts[1]];
 
-      /* Booster : r[7]=booster label, r[11]=pts booster validé */
-      var booster=(r[7]||'').toString().trim();
-      var booster_pts=toNum(r[11]);
+      /* Booster : col H = r[7] (label), col L = r[11] (pts validés) */
+      var boosterLabel=(r[7]||'').toString().trim();
+      var hasBooster=boosterLabel!==''&&boosterLabel!=='...'&&boosterLabel!=='null';
+      var boosterCol=toNum(r[11]); /* pts booster si renseigné dans la colonne L */
 
-      /* Côte : r[8] = col I */
-      var cote=(r[8]||'').toString().trim();
+      /* Points de base : col M = r[12] */
+      var pts=toNum(r[12]);
 
-      /* Match joué = col J (r[9]) ou col K (r[10]) remplie avec un contenu non vide */
+      /* Si col L vide, on applique la règle flat : +50 si booster activé et pari correct */
+      var booster_pts=boosterCol>0 ? boosterCol : (hasBooster&&pts>0 ? BOOSTER_FLAT : 0);
+
+      /* Match joué : col J (r[9]) ou col K (r[10]) contient une valeur non vide */
       var colJ=(r[9]||'').toString().trim();
       var colK=(r[10]||'').toString().trim();
-      var playedStr=colJ||colK; /* on prend le premier non-vide */
+      var playedStr=colJ||colK;
       var played=playedStr!==''&&playedStr!=='...'&&playedStr!=='null';
 
-      var points=toNum(r[12]);
-
       matches.push({
-        poule:curPoule,
-        date:r[3]||null,
-        match:rencontre,
+        poule:curPoule, date:r[3]||null, match:rencontre,
         team_a:ta||null, team_a_n:ta?norm(ta):null,
         team_b:tb||null, team_b_n:tb?norm(tb):null,
         prono:(r[5]||'').toString().trim(),
-        score:r[6]||'',
-        booster:booster,
+        cote:(r[8]||'').toString().trim(),
+        boosterLabel:boosterLabel, hasBooster:hasBooster,
         booster_pts:booster_pts,
-        cote:cote,
-        resultats:playedStr,
-        played:played,
-        points:points
+        resultats:playedStr, played:played, points:pts
       });
     });
   }
-
   for(var i=5;i<rows.length;i++){
-    var row=rows[i]||[];
-    if(row[0]&&typeof row[0]==='string'&&row[0].indexOf('Poule')===0){
-      flush();block=[];curPoule=row[0];continue;
-    }
-    block.push(row);
+    var rw=rows[i]||[];
+    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){flush();block=[];curPoule=rw[0];continue;}
+    block.push(rw);
   }
   flush();
   return{name:name.trim()||null,matches:matches};
 }
 
-/*
-  AUDACE PAR TIER (pari vs rangs FIFA)
-  NUL équilibré (diff≤1) = 0  |  NUL déséquilibré (diff≥2) = 50
-  SAFE (favori ≥2 rangs) = 0  |  MS (favori 1 rang)         = 25
-  MR   (outsider 1 rang) = 75 |  RISQUÉ (outsider ≥2 rangs) = 100
-
-  RÉUSSITE ATTENDUE par tier
-  SAFE=72% | MS=56% | NUL_eq=26% | NUL_dés=15% | MR=40% | RISQUÉ=20%
-*/
-function getAudaceAndProb(m,team_info){
+/* Audace & réussite ajustée par tier
+   SAFE=0 | MS=25 | NUL_eq=0 | NUL_dés=50 | MR=75 | RISQUÉ=100
+   Proba attendue : SAFE=72% | MS=56% | NUL_eq=26% | NUL_dés=15% | MR=40% | RISQUÉ=20% */
+function getAP(m,ti){
   var prono=(m.prono||'').trim();
   if(!prono||prono==='...'||!m.team_a_n||!m.team_b_n) return null;
-  var wa=team_info[m.team_a_n],wb=team_info[m.team_b_n];
+  var wa=ti[m.team_a_n],wb=ti[m.team_b_n];
   if(!wa||!wb) return null;
   if(prono.toUpperCase()==='N'){
-    var diff=Math.abs(wa.rank-wb.rank);
-    return diff<=1?{aud:0,p:0.26}:{aud:50,p:0.15};
+    var df=Math.abs(wa.rank-wb.rank);
+    return df<=1?{a:0,p:0.26}:{a:50,p:0.15};
   }
-  var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
-  var winnerKey=prono===parts[0]?m.team_a_n:prono===parts[1]?m.team_b_n:null;
-  if(!winnerKey) return null;
-  var loserKey=winnerKey===m.team_a_n?m.team_b_n:m.team_a_n;
-  var w=team_info[winnerKey],l=team_info[loserKey];
-  if(!w||!l) return null;
+  var pts=m.match.split(' vs ').map(function(s){return s.trim();});
+  var wk=prono===pts[0]?m.team_a_n:prono===pts[1]?m.team_b_n:null;
+  if(!wk) return null;
+  var lk=wk===m.team_a_n?m.team_b_n:m.team_a_n;
+  var w=ti[wk],l=ti[lk];if(!w||!l) return null;
   var d=w.rank-l.rank;
-  if(d<=-2) return{aud:0,  p:0.72};
-  if(d===-1) return{aud:25, p:0.56};
-  if(d===0)  return{aud:25, p:0.50};
-  if(d===1)  return{aud:75, p:0.40};
-  return     {aud:100,p:0.20};
+  if(d<=-2)return{a:0,  p:0.72};
+  if(d===-1)return{a:25, p:0.56};
+  if(d===0) return{a:25, p:0.50};
+  if(d===1) return{a:75, p:0.40};
+  return      {a:100,p:0.20};
 }
-
-function computePlayerRisk(matches,team_info){
-  var audSum=0,audCnt=0,actSum=0,expSum=0,playedCnt=0;
+function computeRisk(matches,ti){
+  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
   matches.forEach(function(m){
-    var ap=getAudaceAndProb(m,team_info);
-    if(!ap) return;
-    audSum+=ap.aud; audCnt++;
-    if(m.played){
-      actSum+=(m.points>0)?1:0;
-      expSum+=ap.p;
-      playedCnt++;
-    }
+    var ap=getAP(m,ti);if(!ap)return;
+    aSum+=ap.a;aCnt++;
+    if(m.played){actS+=(m.points>0)?1:0;expS+=ap.p;pCnt++;}
   });
   return{
-    audace:audCnt>0?Math.round(audSum/audCnt):50,
-    adjR:playedCnt>0?Math.round(clamp((actSum/playedCnt-expSum/playedCnt)*100,-85,52)):0
+    audace:aCnt>0?Math.round(aSum/aCnt):50,
+    adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
   };
 }
 
@@ -203,89 +186,70 @@ window.__loadAllData=function(){
   return Promise.all(
     [fetchSheet('Equipes'),fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet))
   ).then(function(results){
-    var team_info=parseTeamInfo(results[0]);
-    var cl=parseClassement(results[1]);
-    var classement=cl.classement,qualifMap=cl.qualifMap;
+    var ti=parseTeamInfo(results[0]);
+    var parsed=parseClassement(results[1]);
+    var classement=parsed.classement,qualifMap=parsed.qualifMap;
 
-    /* playersData indexé par nom normalisé pour éviter pb d'accents */
-    var playersData={};
+    /* Indexation par nom normalisé */
+    var pData={};
     results.slice(2).forEach(function(rows){
       var p=parsePlayerSheet(rows);
-      if(p.name) playersData[norm(p.name)]=p.matches;
+      if(p.name) pData[norm(p.name)]=p.matches;
     });
 
-    /* Référence : premier joueur qui a des matchs */
-    var refKey=Object.keys(playersData).find(function(k){return playersData[k].length>0;})||'';
-    var refMatches=playersData[refKey]||[];
+    /* Référence pour les dates */
+    var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
+    var refM=pData[refKey]||[];
 
-    /* nMatchsJoues = matchs avec résultat réel (col J ou K non vide) */
-    var nMatchsJoues=refMatches.filter(function(m){return m.played;}).length;
+    /* nMatchsJoues = lignes avec résultat réel (col J ou K remplie) */
+    var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
 
-    /* Grouper par date */
-    var matchesByDate={};
-    refMatches.forEach(function(m){
-      if(!m.date) return;
-      if(!matchesByDate[m.date]) matchesByDate[m.date]=[];
-      matchesByDate[m.date].push(m);
+    /* Journées */
+    var byDate={};
+    refM.forEach(function(m){
+      if(!m.date)return;
+      if(!byDate[m.date])byDate[m.date]=[];
+      byDate[m.date].push(m);
     });
-    var allDates=Object.keys(matchesByDate).sort();
-
-    /* Dates où au moins un match est joué */
-    var playedDates=allDates.filter(function(d){
-      return matchesByDate[d].some(function(m){return m.played;});
-    });
-
-    /* Journées complètes = TOUS les matchs du jour ont un résultat */
-    var completedDates=allDates.filter(function(d){
-      return matchesByDate[d].length>0&&matchesByDate[d].every(function(m){return m.played;});
-    });
-
-    /* Fallback : si completedDates vide, utiliser playedDates */
+    var allDates=Object.keys(byDate).sort();
+    var playedDates=allDates.filter(function(d){return byDate[d].some(function(m){return m.played;});});
+    var completedDates=allDates.filter(function(d){return byDate[d].length>0&&byDate[d].every(function(m){return m.played;});});
     var datesForDelta=completedDates.length>0?completedDates:playedDates;
     var lastJ=datesForDelta.length>0?datesForDelta[datesForDelta.length-1]:null;
     var prevJ=datesForDelta.length>1?datesForDelta[datesForDelta.length-2]:null;
 
-    function cumPts(matches,uptoDate){
-      if(!uptoDate) return 0;
-      return matches.reduce(function(s,m){return s+(m.date&&m.date<=uptoDate?(m.points||0)+(m.booster_pts||0):0);},0);
+    function cumPts(matches,upto){
+      if(!upto)return 0;
+      return matches.reduce(function(s,m){return s+(m.date&&m.date<=upto?(m.points||0)+(m.booster_pts||0):0);},0);
     }
 
     var out=classement.map(function(e){
-      /* lookup insensible aux accents */
-      var matches=playersData[norm(e.name)]||[];
+      var matches=pData[norm(e.name)]||[];
       var qualif_pts=qualifMap[e.name]||0;
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
-      var boosters_used=matches.filter(function(m){return m.booster&&m.booster!==''&&m.booster!=='...';}).length;
       var total_points=(e.points||0)+qualif_pts+booster_pts;
-      var risk=computePlayerRisk(matches,team_info);
+      var risk=computeRisk(matches,ti);
       var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
       return{
-        name:e.name,
-        points:total_points,
-        basePoints:e.points||0,
-        qualifPoints:qualif_pts,
+        name:e.name,points:total_points,
+        basePoints:e.points||0,qualifPoints:qualif_pts,
         boosters:booster_pts,
-        boostersUsed:boosters_used,
-        correct:e.nbr_prono_exact||0,
-        exact:e.nbr_score_exact||0,
-        audace:risk.audace,
-        adjR:risk.adjR,
-        missedPronos:missedPronos,
-        nMatchs:nMatchsJoues,
+        correct:e.correct||0,exact:e.exact||0,
+        audace:risk.audace,adjR:risk.adjR,
+        missedPronos:missedPronos,nMatchs:nMatchsJoues,
         matches:matches,
         _ptsNow:qualif_pts+cumPts(matches,lastJ),
         _ptsPrev:qualif_pts+cumPts(matches,prevJ)
       };
     });
 
-    /* Delta rang entre journée précédente et actuelle */
     if(prevJ){
-      var byNow=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
-      var byPrev=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
-      var rNow={},rPrev={};
-      byNow.forEach(function(p,i){rNow[p.name]=i+1;});
-      byPrev.forEach(function(p,i){rPrev[p.name]=i+1;});
-      out.forEach(function(p){p.delta=(rPrev[p.name]||0)-(rNow[p.name]||0);});
+      var bN=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
+      var bP=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
+      var rN={},rP={};
+      bN.forEach(function(p,i){rN[p.name]=i+1;});
+      bP.forEach(function(p,i){rP[p.name]=i+1;});
+      out.forEach(function(p){p.delta=(rP[p.name]||0)-(rN[p.name]||0);});
     } else {
       out.forEach(function(p){p.delta=0;});
     }
@@ -306,268 +270,200 @@ window.__loadAllData=function(){
   var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
-
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
     {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
     {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
     {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
   ];
-  function getZone(d){
-    var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;
-    if(x>=50&&y>0)  return"genie";
-    if(x<50&&y>0)   return"platdupied";
-    if(x>=50&&y<=0) return"foudubas";
-    return"timberland";
-  }
+  function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
   var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
-  function Cross(p){var s=p.size||10,c=p.color||"#DDD8D0";return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
-  function ST(p){return(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cross size={8}/><span className="mono" style={{color:"#8A8480",fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid #DDD8D0"}}/><Cross size={8}/></div>);}
-  function RiskDot(props){var z=getZone(props.payload);return<g><circle cx={props.cx} cy={props.cy} r={6} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={0.9}/></g>;}
+  function X(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
+  function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><X size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><X size={8}/></div>;}
+  function Dot(p){var z=gz(p.payload);return<g><circle cx={p.cx} cy={p.cy} r={6} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={0.9}/></g>;}
 
-  function MiniPodium(props){
+  function Pod(props){
     var top3=props.data.slice().sort(function(a,b){return b.val-a.val;}).filter(function(d){return d.val>0;}).slice(0,3);
-    return(<div style={{border:"1px solid #DDD8D0",padding:"16px 18px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,paddingBottom:8,borderBottom:"1px solid #DDD8D0"}}>
+    return<div style={{border:"1px solid "+P.line,padding:"16px 18px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,paddingBottom:8,borderBottom:"1px solid "+P.line}}>
         <div style={{width:7,height:7,borderRadius:"50%",background:props.color,flexShrink:0}}/>
-        <p className="mono" style={{color:"#8A8480",fontSize:8,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{props.title}</p>
+        <p className="mono" style={{color:P.muted,fontSize:8,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{props.title}</p>
       </div>
-      {top3.length===0
-        ?<p className="mono" style={{color:"#8A8480",fontSize:8}}>— à venir —</p>
-        :top3.map(function(d,i){
-          var idx=props.players.findIndex(function(p){return p.name===d.name;});
-          return(<div key={d.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<2?10:0}}>
-            <span className="mono" style={{color:"#8A8480",fontSize:9,fontWeight:700,width:18,flexShrink:0}}>{("0"+(i+1)).slice(-2)}</span>
-            <div style={{width:6,height:6,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
-            <span className="serif" style={{color:"#1A1816",fontSize:13,flex:1}}>{d.name}</span>
-            <span className="mono" style={{color:"#1A1816",fontSize:11,fontWeight:i===0?700:400}}>{d.val}{d.unit||""}</span>
-          </div>);
-        })
-      }
-    </div>);
+      {top3.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>— à venir —</p>
+        :top3.map(function(d,i){var idx=props.players.findIndex(function(p){return p.name===d.name;});return<div key={d.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<2?10:0}}>
+          <span className="mono" style={{color:P.muted,fontSize:9,fontWeight:700,width:18,flexShrink:0}}>{("0"+(i+1)).slice(-2)}</span>
+          <div style={{width:6,height:6,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
+          <span className="serif" style={{color:P.text,fontSize:13,flex:1}}>{d.name}</span>
+          <span className="mono" style={{color:P.text,fontSize:11,fontWeight:i===0?700:400}}>{d.val}{d.unit||""}</span>
+        </div>;})}
+    </div>;
   }
 
   function App(){
-    var ls=useState(true);var loading=ls[0],setLoading=ls[1];
-    var es=useState(null);var error=es[0],setError=es[1];
-    var ps=useState([]);var players=ps[0],setPlayers=ps[1];
-    var nm=useState(0);var nMatchs=nm[0],setNMatchs=nm[1];
-    var ts=useState("Classement");var tab=ts[0],setTab=ts[1];
-    var fs=useState([]);var focused=fs[0],setFocused=fs[1];
-    var pd=useState([]);var playedDates=pd[0],setPlayedDates=pd[1];
-    var cd=useState([]);var completedDates=cd[0],setCompletedDates=cd[1];
+    var _l=useState(true),loading=_l[0],setLoading=_l[1];
+    var _e=useState(null),error=_e[0],setError=_e[1];
+    var _p=useState([]),players=_p[0],setPlayers=_p[1];
+    var _n=useState(0),nM=_n[0],setNM=_n[1];
+    var _t=useState("Classement"),tab=_t[0],setTab=_t[1];
+    var _f=useState([]),focused=_f[0],setFocused=_f[1];
+    var _pd=useState([]),playedDates=_pd[0],setPD=_pd[1];
+    var _cd=useState([]),completedDates=_cd[0],setCD=_cd[1];
 
     useEffect(function(){
-      window.__loadAllData().then(function(result){
-        var sorted=result.players.slice().sort(function(a,b){return b.points-a.points||b.exact-a.exact||b.correct-a.correct;});
-        sorted.forEach(function(p,i){p.rank=i+1;});
-        setPlayers(sorted);
-        setNMatchs(result.nMatchs);
-        setPlayedDates(result.playedDates||[]);
-        setCompletedDates(result.completedDates||[]);
-        setLoading(false);
-      }).catch(function(e){
-        setError('Erreur : '+e.message);
-        setLoading(false);
-      });
+      window.__loadAllData().then(function(r){
+        var s=r.players.slice().sort(function(a,b){return b.points-a.points||b.exact-a.exact||b.correct-a.correct;});
+        s.forEach(function(p,i){p.rank=i+1;});
+        setPlayers(s);setNM(r.nMatchs);setPD(r.playedDates||[]);setCD(r.completedDates||[]);setLoading(false);
+      }).catch(function(e){setError(e.message);setLoading(false);});
     },[]);
 
-    function tog(name){setFocused(function(p){return p.indexOf(name)>=0?p.filter(function(n){return n!==name;}):p.concat([name]);});}
-    var TT={background:"#FDFCF9",border:"1px solid #DDD8D0",fontFamily:"'Space Mono',monospace",fontSize:10,color:"#1A1816",padding:"10px 14px"};
-
-    /* Données progression : rang par journée */
-    var datesForProg=completedDates.length>0?completedDates:playedDates;
-    var enCours=playedDates.filter(function(d){return completedDates.indexOf(d)<0;});
-    var progDates=datesForProg.concat(enCours.length>0?[enCours[enCours.length-1]+"__partial"]:[]);
-
-    var progData=(function(){
-      if(players.length===0||datesForProg.length===0&&enCours.length===0) return [];
-      return progDates.map(function(raw){
-        var isPartial=raw.indexOf('__partial')>=0;
-        var d=isPartial?raw.replace('__partial',''):raw;
-        var ptsAt={};
-        players.forEach(function(p){
-          ptsAt[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?(m.points||0)+(m.booster_pts||0):0);},0);
-        });
-        var srtd=players.slice().sort(function(a,b){return ptsAt[b.name]-ptsAt[a.name];});
-        var row={j:d.slice(5)+(isPartial?" ⟳":"")};
-        srtd.forEach(function(p,i){row[p.name]=i+1;});
-        return row;
-      });
-    })();
-
+    function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
+    var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
     var SCAT=players.map(function(p,i){return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:p.audace+((i*7+3)%5)*2.2-5.5,y:p.adjR+((i*11+5)%7)*2.0-6.0};});
     var P0=players[0]||{name:'—',points:0};
-    var bestExact=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
+    var bE=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
 
-    if(loading) return(
-      <div style={{background:"#F7F4EF",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div style={{textAlign:"center"}}>
-          <p className="mono" style={{color:"#8A8480",fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p>
-          <p className="serif" style={{color:"#1A1816",fontSize:22}}>Récupération des données…</p>
-          <p className="mono" style={{color:"#8A8480",fontSize:8,marginTop:8}}>Google Sheets · {PLAYER_SHEETS.length} onglets</p>
+    /* Progression : rang par journée */
+    var dFP=completedDates.length>0?completedDates:playedDates;
+    var enC=playedDates.filter(function(d){return completedDates.indexOf(d)<0;});
+    var progDts=dFP.concat(enC.length>0?[enC[enC.length-1]+"__p"]:[]);
+    var progData=players.length===0?[]:progDts.map(function(raw){
+      var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
+      var pts={};
+      players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?(m.points||0)+(m.booster_pts||0):0);},0);});
+      var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
+      var row={j:d.slice(5)+(iP?" ⟳":"")};
+      sr.forEach(function(p,i){row[p.name]=i+1;});
+      return row;
+    });
+
+    if(loading)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p><p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p><p className="mono" style={{color:P.muted,fontSize:8,marginTop:8}}>{PLAYER_SHEETS.length} onglets</p></div></div>;
+    if(error)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}><div style={{maxWidth:500,textAlign:"center"}}><p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR</p><p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p><p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>Le sheet doit être public (Partager → Tout le monde → Lecteur)<br/>et les noms d'onglets correspondre à PLAYER_SHEETS</p></div></div>;
+
+    return<div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
+      <div style={{maxWidth:820,margin:"0 auto"}}>
+
+        {/* Header */}
+        <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,position:"relative"}}>
+          <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC · {players.length} JOUEURS ✦</p>
+          <h1 className="serif" style={{color:P.text,fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Pronostics Dashboard</h1>
+          <div style={{position:"absolute",top:0,left:0}}><X size={10}/></div>
+          <div style={{position:"absolute",top:0,right:0}}><X size={10}/></div>
         </div>
-      </div>
-    );
-    if(error) return(
-      <div style={{background:"#F7F4EF",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}>
-        <div style={{maxWidth:520,textAlign:"center"}}>
-          <p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR DE CHARGEMENT</p>
-          <p className="serif" style={{color:"#1A1816",fontSize:18,marginBottom:12}}>{error}</p>
-          <p className="mono" style={{color:"#8A8480",fontSize:8,lineHeight:1.8}}>
-            Vérifiez que le sheet est public (Partager → Tout le monde → Lecteur)<br/>
-            et que les noms d'onglets correspondent à PLAYER_SHEETS
-          </p>
+
+        {/* Stats */}
+        <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
+          {[{l:"LEADER",v:P0.name+(P0.points?" · "+P0.points+" pts":"")},{l:"MATCHS JOUÉS",v:String(nM)},{l:"TIREUR PRÉCIS",v:bE.name+" · "+(bE.exact||0)+" exact"+(bE.exact>1?"s":"")}].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.v}</p></div>;})}
         </div>
-      </div>
-    );
 
-    return(
-      <div style={{background:"#F7F4EF",minHeight:"100vh",padding:"28px 20px"}}>
-        <div style={{maxWidth:820,margin:"0 auto"}}>
+        {/* Tabs */}
+        <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid "+P.line}}>
+          {TABS.map(function(t){return<button key={t} onClick={function(){setTab(t);}} className="mono" style={{background:"transparent",border:"none",borderBottom:tab===t?"2px solid "+P.text:"2px solid transparent",color:tab===t?P.text:P.muted,fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",padding:"8px 16px",cursor:"pointer",marginBottom:-1}}>{t}</button>;})}
+        </div>
 
-          {/* Header */}
-          <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid #DDD8D0",position:"relative"}}>
-            <p className="mono" style={{color:"#8A8480",fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC · {players.length} JOUEURS ✦</p>
-            <h1 className="serif" style={{color:"#1A1816",fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Pronostics Dashboard</h1>
-            <div style={{position:"absolute",top:0,left:0}}><Cross size={10}/></div>
-            <div style={{position:"absolute",top:0,right:0}}><Cross size={10}/></div>
+        {/* CLASSEMENT */}
+        {tab==="Classement"&&<div style={{background:P.card,padding:"18px 22px"}}>
+          <ST>{nM} match{nM!==1?"s":""} joué{nM!==1?"s":""}</ST>
+
+          {/* Top 3 */}
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            {players.slice(0,3).map(function(p,i){
+              var gs=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
+              var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
+              return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
+                <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
+                <p className="mono" style={{color:cs[i],fontSize:8,letterSpacing:"0.2em",marginBottom:4}}>#{i+1}</p>
+                <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2}}>{p.name}</p>
+                {p.delta!==0&&<p className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,marginBottom:2}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</p>}
+                <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4}}>{p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span></p>
+                <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
+                  {p.correct} correct{p.correct!==1?"s":""}
+                  {p.boosters>0&&<span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>+{p.boosters} boost</span>}
+                </p>
+              </div>;
+            })}
           </div>
 
-          {/* Stats bar */}
-          <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
-            {[
-              {label:"LEADER",       val:P0.name+(P0.points?" · "+P0.points+" pts":"")},
-              {label:"MATCHS JOUÉS", val:String(nMatchs)},
-              {label:"TIREUR PRÉCIS",val:bestExact.name+" · "+(bestExact.exact||0)+" exact"+(bestExact.exact>1?"s":"")}
-            ].map(function(k,i,arr){return(
-              <div key={k.label} style={{padding:"0 18px",borderRight:i<arr.length-1?"1px solid #DDD8D0":"none",textAlign:"center"}}>
-                <p className="mono" style={{color:"#8A8480",fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.label}</p>
-                <p className="mono" style={{color:"#1A1816",fontSize:11,fontWeight:700}}>{k.val}</p>
-              </div>
-            );})}
+          {/* Liste */}
+          <div style={{display:"flex",flexDirection:"column"}}>
+            {players.slice(3).map(function(p,i){
+              var rk=i+4,last=rk>players.length-3,c=WHEEL[rk%WHEEL.length];
+              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F2DADA22":"transparent"}}>
+                <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
+                <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
+                <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1}}>{p.name}</span>
+                {p.delta!==0
+                  ?<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,width:28,textAlign:"right",flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>
+                  :<span style={{width:28,flexShrink:0}}/>}
+                <span className="mono" style={{color:P.muted,fontSize:8,width:36,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
+                {p.boosters>0
+                  ?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>
+                  :<span style={{width:48,flexShrink:0}}/>}
+                <span className="mono" style={{color:last?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
+                <span className="mono" style={{color:P.muted,fontSize:7,width:16}}>PTS</span>
+              </div>;
+            })}
           </div>
+        </div>}
 
-          {/* Tabs */}
-          <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid #DDD8D0"}}>
-            {TABS.map(function(t){return(<button key={t} onClick={function(){setTab(t);}} className="mono" style={{background:"transparent",border:"none",borderBottom:tab===t?"2px solid #1A1816":"2px solid transparent",color:tab===t?"#1A1816":"#8A8480",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",padding:"8px 16px",cursor:"pointer",marginBottom:-1}}>{t}</button>);})}
+        {/* PROGRESSION */}
+        {tab==="Progression"&&<div style={{background:P.card,padding:"18px 22px"}}>
+          <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
+            {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<button key={p.name} onClick={function(){tog(p.name);}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:col}}/><span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span></button>;})}
+            {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
           </div>
+          {progData.length===0
+            ?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible pour l'instant.</p>
+            :<div><p className="mono" style={{color:P.muted,fontSize:7,marginBottom:8,letterSpacing:"0.1em"}}>#1 EN HAUT · ⟳ EN COURS</p>
+              <ResponsiveContainer width="100%" height={340}>
+                <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
+                  <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
+                  <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
+                  <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
+                  {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="linear" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}</LineChart>
+              </ResponsiveContainer>
+            </div>}
+        </div>}
 
-          {/* ── CLASSEMENT ── */}
-          {tab==="Classement"&&(
-            <div style={{background:"#FDFCF9",padding:"18px 22px"}}>
-              <ST>{nMatchs} match{nMatchs!==1?"s":""} joué{nMatchs!==1?"s":""} · classement général</ST>
-
-              {/* Top 3 */}
-              <div style={{display:"flex",gap:8,marginBottom:16}}>
-                {players.slice(0,3).map(function(p,i){
-                  var grads=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
-                  var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
-                  return(<div key={p.name} style={{flex:1,border:"1px solid #DDD8D0",padding:"14px 16px",background:grads[i],position:"relative",overflow:"hidden"}}>
-                    <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
-                    <p className="mono" style={{color:cs[i],fontSize:8,letterSpacing:"0.2em",marginBottom:4}}>#{i+1}</p>
-                    <p className="serif" style={{color:"#1A1816",fontSize:17,marginBottom:2}}>{p.name}</p>
-                    {p.delta!==0&&<p className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,marginBottom:2}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</p>}
-                    <p className="mono" style={{color:"#1A1816",fontSize:22,fontWeight:700,lineHeight:1,marginTop:4}}>{p.points}<span style={{fontSize:9,color:"#8A8480",fontWeight:400}}> PTS</span></p>
-                    <p className="mono" style={{color:"#8A8480",fontSize:8,marginTop:6}}>
-                      {p.correct} correct{p.correct!==1?"s":""}
-                      {p.boosters>0&&<span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>+{p.boosters} boost</span>}
-                    </p>
-                  </div>);
-                })}
-              </div>
-
-              {/* Liste */}
-              <div style={{display:"flex",flexDirection:"column"}}>
-                {players.slice(3).map(function(p,i){
-                  var rank=i+4,isLast3=rank>players.length-3,c=WHEEL[rank%WHEEL.length];
-                  return(<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid #DDD8D044",background:isLast3?"#F2DADA22":"transparent"}}>
-                    <span className="mono" style={{color:"#8A8480",fontSize:8,width:22,flexShrink:0}}>{("0"+rank).slice(-2)}</span>
-                    <div style={{width:5,height:5,borderRadius:"50%",background:isLast3?"#C8A0A0":c,flexShrink:0}}/>
-                    <span className="serif" style={{color:isLast3?"#A88080":"#1A1816",fontSize:13,flex:1}}>{p.name}</span>
-                    {p.delta!==0
-                      ?<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,width:28,textAlign:"right",flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>
-                      :<span style={{width:28,flexShrink:0}}/>}
-                    <span className="mono" style={{color:"#8A8480",fontSize:8,width:38,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
-                    {p.boosters>0
-                      ?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:"#8A8480",width:50,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>
-                      :<span style={{width:50,flexShrink:0}}/>}
-                    <span className="mono" style={{color:isLast3?"#C09090":"#1A1816",fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
-                    <span className="mono" style={{color:"#8A8480",fontSize:7,width:16}}>PTS</span>
-                  </div>);
-                })}
-              </div>
+        {/* RISQUES */}
+        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{background:P.card,padding:"18px 22px"}}>
+            <div style={{position:"relative",height:420}}>
+              {ZONES.map(function(z){var pos=Object.assign({position:"absolute"},z.corner);return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"3px 7px",border:"1px solid "+z.c+"66",background:P.card+"F0"})}><p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em"}}>{z.label}</p></div>;})}
+              <ResponsiveContainer width="100%" height={420}>
+                <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
+                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.13}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
+                  <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
+                  <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
+                  <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
+                    if(!p.active||!p.payload||!p.payload.length)return null;
+                    var d=p.payload[0].payload,r=nM>0?Math.round(d.correct/nM*100):0;
+                    return<div style={Object.assign({},TT)}><p style={{fontWeight:700,marginBottom:6}}>#{d.rank} · {d.name}</p><p style={{color:P.muted,margin:"3px 0"}}>Score d'audace : {d.audace}%</p><p style={{color:P.muted,margin:"3px 0"}}>Taux de réussite : {r}%</p></div>;
+                  }}/>
+                  <Scatter data={SCAT} shape={<Dot/>}/>
+                </ScatterChart>
+              </ResponsiveContainer>
             </div>
-          )}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            {ZONES.map(function(z){var cnt=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;return<div key={z.key} style={{padding:"10px 14px",border:"1px solid "+z.c,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p className="mono" style={{color:z.c,fontSize:9,fontWeight:700,marginBottom:3}}>{z.label}</p><p className="mono" style={{color:P.muted,fontSize:7}}>{z.sub}</p></div><span className="mono" style={{color:z.c,fontSize:18,fontWeight:700}}>{cnt}</span></div>;})}
+          </div>
+        </div>}
 
-          {/* ── PROGRESSION ── */}
-          {tab==="Progression"&&(
-            <div style={{background:"#FDFCF9",padding:"18px 22px"}}>
-              <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
-              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
-                {players.map(function(p,i){var color=WHEEL[i%WHEEL.length],isFoc=focused.indexOf(p.name)>=0,isOn=focused.length===0||isFoc;return(<button key={p.name} onClick={function(){tog(p.name);}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(isFoc?color:"#DDD8D0"),background:isFoc?color+"18":"transparent",opacity:isOn?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:color}}/><span className="mono" style={{color:isFoc?color:"#1A1816",fontSize:8,fontWeight:isFoc?700:400}}>{p.name}</span></button>);})}
-                {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid #8A8480",background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:"#8A8480",fontSize:8}}>✕ tout afficher</span></button>}
-              </div>
-              {progData.length===0
-                ?<p className="mono" style={{color:"#8A8480",fontSize:8}}>Aucune journée disponible pour l'instant.</p>
-                :<div>
-                  <p className="mono" style={{color:"#8A8480",fontSize:7,marginBottom:8,letterSpacing:"0.1em"}}>#1 EN HAUT · ⟳ JOURNÉE EN COURS</p>
-                  <ResponsiveContainer width="100%" height={340}>
-                    <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
-                      <CartesianGrid stroke="#DDD8D0" strokeOpacity={0.4}/>
-                      <XAxis dataKey="j" tick={{fill:"#8A8480",fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:"#DDD8D0"}} tickLine={false}/>
-                      <YAxis reversed domain={[1,players.length||28]} tick={{fill:"#8A8480",fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
-                      <Tooltip contentStyle={TT} formatter={function(val,name){return["#"+val,name];}}/>
-                      {players.map(function(p,i){var color=WHEEL[i%WHEEL.length],isFoc=focused.indexOf(p.name)>=0,isOn=focused.length===0||isFoc;return<Line key={p.name} type="linear" dataKey={p.name} stroke={color} strokeWidth={isFoc?2.5:isOn?1.2:0.6} strokeOpacity={isOn?1:0.04} dot={false} legendType="none"/>;})}</LineChart>
-                  </ResponsiveContainer>
-                </div>
-              }
-            </div>
-          )}
+        {/* PODIUM */}
+        {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+            <Pod title="Meilleur boosteur" color={WHEEL[0]} players={players} data={players.map(function(p){return{name:p.name,val:p.boosters||0,unit:" pts"};})}/>
+            <Pod title="Scores exacts" color={WHEEL[3]} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
+            <Pod title="Les Oublis" color={WHEEL[1]} players={players} data={players.map(function(p){return{name:p.name,val:p.missedPronos||0,unit:" manqué"+(p.missedPronos!==1?"s":"")};})}/>
+          </div>
+        </div>}
 
-          {/* ── RISQUES ── */}
-          {tab==="Risques"&&(
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{background:"#FDFCF9",padding:"18px 22px"}}>
-                <div style={{position:"relative",height:420}}>
-                  {ZONES.map(function(z){var pos=Object.assign({position:"absolute"},z.corner);return(<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"3px 7px",border:"1px solid "+z.c+"66",background:"#FDFCF9F0"})}><p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em"}}>{z.label}</p></div>);})}
-                  <ResponsiveContainer width="100%" height={420}>
-                    <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                      {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.13}/>;})}<ReferenceLine x={50} stroke="#8A8480" strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke="#8A8480" strokeDasharray="3 3" strokeWidth={1.5}/>
-                      <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:"#DDD8D0"}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:"#8A8480",fontFamily:"'Space Mono',monospace"}}/>
-                      <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
-                      <Tooltip cursor={{stroke:"#DDD8D0",strokeDasharray:"3 3"}} content={function(p){
-                        if(!p.active||!p.payload||!p.payload.length)return null;
-                        var d=p.payload[0].payload;
-                        var reussite=nMatchs>0?Math.round(d.correct/nMatchs*100):0;
-                        return(<div style={Object.assign({},TT)}><p style={{fontWeight:700,marginBottom:6}}>#{d.rank} · {d.name}</p><p style={{color:"#8A8480",margin:"3px 0"}}>Score d'audace : {d.audace}%</p><p style={{color:"#8A8480",margin:"3px 0"}}>Taux de réussite : {reussite}%</p></div>);
-                      }}/>
-                      <Scatter data={SCAT} shape={<RiskDot/>}/>
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {ZONES.map(function(z){var count=players.filter(function(p){return getZone({x:p.audace,y:p.adjR})===z.key;}).length;return(<div key={z.key} style={{padding:"10px 14px",border:"1px solid "+z.c,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p className="mono" style={{color:z.c,fontSize:9,fontWeight:700,marginBottom:3}}>{z.label}</p><p className="mono" style={{color:"#8A8480",fontSize:7}}>{z.sub}</p></div><span className="mono" style={{color:z.c,fontSize:18,fontWeight:700}}>{count}</span></div>);})}
-              </div>
-            </div>
-          )}
-
-          {/* ── PODIUM ── */}
-          {tab==="Podium"&&(
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-                <MiniPodium title="Meilleur boosteur" color={WHEEL[0]} players={players} data={players.map(function(p){return{name:p.name,val:p.boosters||0,unit:" pts"};})}/>
-                <MiniPodium title="Scores exacts" color={WHEEL[3]} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
-                <MiniPodium title="Les Oublis" color={WHEEL[1]} players={players} data={players.map(function(p){return{name:p.name,val:p.missedPronos||0,unit:" manqué"+(p.missedPronos!==1?"s":"")};})}/>
-              </div>
-            </div>
-          )}
-
-        </div>
       </div>
-    );
+    </div>;
   }
   ReactDOM.render(React.createElement(App,null),document.getElementById("root"));
 </script>
