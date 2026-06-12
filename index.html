@@ -30,10 +30,10 @@ var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
 /*  Noms exacts des onglets dans le Google Sheet.
     Par défaut = noms des joueurs. Ajuster si différent. */
 var PLAYER_TAB_NAMES = [
-  "Joris","Aymeric","Noé","Ricco","Steph","Goyt","Jess",
-  "Stan","Marina","Clara","Laura","Chloé","Pata","Erwan",
-  "Micka","Jeje","Hugo O.","Paco","Hugo C.","Mathys",
-  "Dam's","Cyrille","Léna","Vero","Nikola","Greg","Kalash","Shervan"
+  "Dam's 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1",
+  "Goyt 1","Noe 1","Pata 1","Marina 1","Vero 1","Erwan 1","Hugo 1","Shervan 1",
+  "Laura 1","Greg 1","Nikola 1","Paco 1","Cyrille 1","Joris 1","Steph 1","Mathys 1",
+  "Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"
 ];
 
 /*  Indices de colonnes (0 = colonne A).
@@ -41,12 +41,12 @@ var PLAYER_TAB_NAMES = [
     que les bonnes valeurs sont parsées. */
 var DEBUG_MODE = false;
 var COL = {
-  DATE:    0,   // A
-  MATCH:   1,   // B  → "A vs C"
+  DATE:    3,   // D
+  MATCH:   4,   // E  → "A vs C"
   PRONO:   5,   // F  → "A", "B", "N"…
-  RESULT:  3,   // D  → "2 - 1" (score réel, rempli quand joué)
+  RESULT:  10,  // K  → "2 - 1" (score réel, rempli quand joué)
   COTE:    8,   // I  → "1-3", "2-1", "nul"…
-  SCORED:  9    // J  → rempli quand match est scoré
+  SCORED:  10   // K  → rempli quand match est scoré
 };
 
 /*  Probabilités de réussite attendue par tier de risque.
@@ -242,7 +242,7 @@ window.__fetchAllPlayers = function() {
         var parsed = results.map(function(r) {
           var stats = computePlayerStats(r.rows, r.name);
           return {
-            name: r.name,
+            name: r.name.replace(/ 1$/, ''),
             points: 0, /* sera calculé si colonne points disponible */
             correct: stats.correct,
             exact: stats.exact,
