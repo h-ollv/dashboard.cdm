@@ -23,7 +23,6 @@
 <div id="root"></div>
 <script>
 var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
-
 var PLAYER_SHEETS = [
   "Dam's 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1",
   "Goyt 1","Noe 1","Pata 1","Marina 1","Vero 1","Erwan 1","Hugo 1","Shervan 1",
@@ -36,6 +35,7 @@ function norm(s){
   return s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
 
 function fetchSheet(sheetName){
   var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(sheetName);
@@ -43,8 +43,8 @@ function fetchSheet(sheetName){
     var m=text.match(/setResponse\(([\s\S]*)\);?\s*$/);
     if(!m) throw new Error('Réponse inattendue pour "'+sheetName+'"');
     var json=JSON.parse(m[1]);
-    return (json.table.rows||[]).map(function(r){
-      return (r.c||[]).map(function(cell){
+    return (json.table.rows||[]).map(function(row){
+      return (row.c||[]).map(function(cell){
         if(!cell||cell.v===null||cell.v===undefined) return '';
         var v=cell.v;
         if(typeof v==='string'&&v.indexOf('Date(')===0){
@@ -60,7 +60,6 @@ function fetchSheet(sheetName){
 function parseTeamInfo(rows){
   var team_info={};
   [1,7,13].forEach(function(headerIdx){
-    var header=rows[headerIdx]||[];
     [1,4,7,10].forEach(function(start){
       for(var r=headerIdx+1;r<=headerIdx+4;r++){
         var row=rows[r]||[];
@@ -80,17 +79,18 @@ function parseClassement(rows){
     if(!name) continue;
     if(typeof name==='string'&&name.indexOf('Points pris')===0){mode='qualif';continue;}
     if(name==='Joueurs') continue;
-    var entry={name:String(name).trim(),nbr_prono_exact:row[2]||0,nbr_score_exact:row[3]||0,points:row[4]||0};
+    var entry={name:String(name).trim(),nbr_prono_exact:toNum(row[2]),nbr_score_exact:toNum(row[3]),points:toNum(row[4])};
     if(mode==='main') classement.push(entry);
-    else qualifMap[entry.name]=entry.points;
+    else qualifMap[String(name).trim()]=toNum(row[4]);
   }
-  return {classement:classement,qualifMap:qualifMap};
+  return{classement:classement,qualifMap:qualifMap};
 }
 
 function parsePlayerSheet(rows){
   var name=(rows[0]&&rows[0][1])||'';
   if(typeof name==='string'&&name.indexOf('Joueur :')===0) name=name.replace('Joueur :','').trim();
   var matches=[],block=[],curPoule=null;
+
   function flush(){
     if(!block.length) return;
     var teams={};
@@ -99,49 +99,64 @@ function parsePlayerSheet(rows){
         teams[r[0].replace('Equipe','').trim()]=String(r[1]).trim();
     });
     block.forEach(function(r){
-      var date=r[3],rencontre=r[4],prono=r[5],score=r[6],booster=r[7],
-          cote=r[8],resultats=(r[10]||'').toString().trim(),
-          boosterValide=r[11],points=r[12];
-      if(rencontre&&typeof rencontre==='string'&&rencontre.indexOf(' vs ')>=0){
-        var parts=rencontre.split(' vs ').map(function(s){return s.trim();});
-        var pa=parts[0],pb=parts[1];
-        var ta=teams[pa],tb=teams[pb];
-        var bv=(typeof boosterValide==='number')?boosterValide:0;
-        /* Match "joué" = résultat rempli dans la colonne résultats (col K) */
-        var played=resultats!==''&&resultats!=='...'&&/\d/.test(resultats);
-        matches.push({
-          poule:curPoule,date:date||null,match:rencontre,
-          team_a:ta||null,team_a_n:ta?norm(ta):null,
-          team_b:tb||null,team_b_n:tb?norm(tb):null,
-          prono:(prono||'').toString().trim(),
-          score:score,cote:(cote||'').toString().trim(),
-          booster:booster,booster_pts:bv,
-          resultats:resultats,points:points||0,
-          played:played
-        });
-      }
+      var rencontre=r[4];
+      if(!rencontre||typeof rencontre!=='string'||rencontre.indexOf(' vs ')<0) return;
+      var parts=rencontre.split(' vs ').map(function(s){return s.trim();});
+      var pa=parts[0],pb=parts[1];
+      var ta=teams[pa],tb=teams[pb];
+
+      /* Booster : r[7]=booster label, r[11]=pts booster validé */
+      var booster=(r[7]||'').toString().trim();
+      var booster_pts=toNum(r[11]);
+
+      /* Côte : r[8] = col I */
+      var cote=(r[8]||'').toString().trim();
+
+      /* Match joué = col J (r[9]) ou col K (r[10]) remplie avec un contenu non vide */
+      var colJ=(r[9]||'').toString().trim();
+      var colK=(r[10]||'').toString().trim();
+      var playedStr=colJ||colK; /* on prend le premier non-vide */
+      var played=playedStr!==''&&playedStr!=='...'&&playedStr!=='null';
+
+      var points=toNum(r[12]);
+
+      matches.push({
+        poule:curPoule,
+        date:r[3]||null,
+        match:rencontre,
+        team_a:ta||null, team_a_n:ta?norm(ta):null,
+        team_b:tb||null, team_b_n:tb?norm(tb):null,
+        prono:(r[5]||'').toString().trim(),
+        score:r[6]||'',
+        booster:booster,
+        booster_pts:booster_pts,
+        cote:cote,
+        resultats:playedStr,
+        played:played,
+        points:points
+      });
     });
   }
+
   for(var i=5;i<rows.length;i++){
     var row=rows[i]||[];
-    var col0=row[0];
-    if(col0&&typeof col0==='string'&&col0.indexOf('Poule')===0){flush();block=[];curPoule=col0;continue;}
+    if(row[0]&&typeof row[0]==='string'&&row[0].indexOf('Poule')===0){
+      flush();block=[];curPoule=row[0];continue;
+    }
     block.push(row);
   }
   flush();
-  return{name:name||null,matches:matches};
+  return{name:name.trim()||null,matches:matches};
 }
 
 /*
-  AUDACE par tier — basé sur le pari vs les rangs FIFA
-    NUL sur match équilibré (diff≤1) = 0
-    NUL sur match déséquilibré (diff≥2) = 50
-    SAFE (favori ≥2 rangs)  = 0
-    MS   (favori 1 rang)    = 25
-    MR   (outsider 1 rang)  = 75
-    RISQUÉ (outsider ≥2 rangs) = 100
-  Proba réussite attendue :
-    SAFE=72% | MS=56% | NUL_eq=26% | NUL_dés=15% | MR=40% | RISQUÉ=20%
+  AUDACE PAR TIER (pari vs rangs FIFA)
+  NUL équilibré (diff≤1) = 0  |  NUL déséquilibré (diff≥2) = 50
+  SAFE (favori ≥2 rangs) = 0  |  MS (favori 1 rang)         = 25
+  MR   (outsider 1 rang) = 75 |  RISQUÉ (outsider ≥2 rangs) = 100
+
+  RÉUSSITE ATTENDUE par tier
+  SAFE=72% | MS=56% | NUL_eq=26% | NUL_dés=15% | MR=40% | RISQUÉ=20%
 */
 function getAudaceAndProb(m,team_info){
   var prono=(m.prono||'').trim();
@@ -153,61 +168,60 @@ function getAudaceAndProb(m,team_info){
     return diff<=1?{aud:0,p:0.26}:{aud:50,p:0.15};
   }
   var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
-  var pa=parts[0],pb=parts[1];
-  var winnerKey=null;
-  if(prono===pa) winnerKey=m.team_a_n;
-  else if(prono===pb) winnerKey=m.team_b_n;
-  else return null;
+  var winnerKey=prono===parts[0]?m.team_a_n:prono===parts[1]?m.team_b_n:null;
+  if(!winnerKey) return null;
   var loserKey=winnerKey===m.team_a_n?m.team_b_n:m.team_a_n;
   var w=team_info[winnerKey],l=team_info[loserKey];
   if(!w||!l) return null;
-  var d=w.rank-l.rank; /* négatif = pari sur le favori */
+  var d=w.rank-l.rank;
   if(d<=-2) return{aud:0,  p:0.72};
   if(d===-1) return{aud:25, p:0.56};
   if(d===0)  return{aud:25, p:0.50};
   if(d===1)  return{aud:75, p:0.40};
-  return      {aud:100,p:0.20};
+  return     {aud:100,p:0.20};
 }
 
 function computePlayerRisk(matches,team_info){
-  var audSum=0,audCnt=0,actSum=0,expSum=0;
+  var audSum=0,audCnt=0,actSum=0,expSum=0,playedCnt=0;
   matches.forEach(function(m){
     var ap=getAudaceAndProb(m,team_info);
     if(!ap) return;
     audSum+=ap.aud; audCnt++;
     if(m.played){
-      /* pari correct = points de base > 0 */
       actSum+=(m.points>0)?1:0;
       expSum+=ap.p;
+      playedCnt++;
     }
   });
-  var playedWithBet=matches.filter(function(m){return m.played&&getAudaceAndProb(m,team_info)!==null;}).length;
-  var audace=audCnt>0?Math.round(audSum/audCnt):50;
-  var adjR=playedWithBet>0?Math.round(clamp((actSum/playedWithBet-expSum/playedWithBet)*100,-85,52)):0;
-  return{audace:audace,adjR:adjR};
+  return{
+    audace:audCnt>0?Math.round(audSum/audCnt):50,
+    adjR:playedCnt>0?Math.round(clamp((actSum/playedCnt-expSum/playedCnt)*100,-85,52)):0
+  };
 }
 
 window.__loadAllData=function(){
   return Promise.all(
     [fetchSheet('Equipes'),fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet))
   ).then(function(results){
-    var equipesRows=results[0],classementRows=results[1];
-    var playerRowsList=results.slice(2);
-    var team_info=parseTeamInfo(equipesRows);
-    var cl=parseClassement(classementRows);
+    var team_info=parseTeamInfo(results[0]);
+    var cl=parseClassement(results[1]);
     var classement=cl.classement,qualifMap=cl.qualifMap;
+
+    /* playersData indexé par nom normalisé pour éviter pb d'accents */
     var playersData={};
-    playerRowsList.forEach(function(rows){
-      var parsed=parsePlayerSheet(rows);
-      if(parsed.name) playersData[parsed.name]=parsed.matches;
+    results.slice(2).forEach(function(rows){
+      var p=parsePlayerSheet(rows);
+      if(p.name) playersData[norm(p.name)]=p.matches;
     });
 
-    /* nMatchsJoues = matchs avec résultat réel (colonne résultats remplie) */
-    var refMatches=playersData[Object.keys(playersData)[0]]||[];
+    /* Référence : premier joueur qui a des matchs */
+    var refKey=Object.keys(playersData).find(function(k){return playersData[k].length>0;})||'';
+    var refMatches=playersData[refKey]||[];
+
+    /* nMatchsJoues = matchs avec résultat réel (col J ou K non vide) */
     var nMatchsJoues=refMatches.filter(function(m){return m.played;}).length;
 
-    /* Dates jouées = dates où au moins un match a un résultat */
-    /* playedDates = dates de journées COMPLÈTES (tous matchs du jour ont résultat) */
+    /* Grouper par date */
     var matchesByDate={};
     refMatches.forEach(function(m){
       if(!m.date) return;
@@ -215,40 +229,42 @@ window.__loadAllData=function(){
       matchesByDate[m.date].push(m);
     });
     var allDates=Object.keys(matchesByDate).sort();
+
+    /* Dates où au moins un match est joué */
     var playedDates=allDates.filter(function(d){
       return matchesByDate[d].some(function(m){return m.played;});
     });
-    /* Journées complètes = toutes leurs rencontres ont un résultat */
+
+    /* Journées complètes = TOUS les matchs du jour ont un résultat */
     var completedDates=allDates.filter(function(d){
       return matchesByDate[d].length>0&&matchesByDate[d].every(function(m){return m.played;});
     });
 
-    var lastCompleted=completedDates.length>0?completedDates[completedDates.length-1]:null;
-    var prevCompleted=completedDates.length>1?completedDates[completedDates.length-2]:null;
+    /* Fallback : si completedDates vide, utiliser playedDates */
+    var datesForDelta=completedDates.length>0?completedDates:playedDates;
+    var lastJ=datesForDelta.length>0?datesForDelta[datesForDelta.length-1]:null;
+    var prevJ=datesForDelta.length>1?datesForDelta[datesForDelta.length-2]:null;
 
-    function cumPtsAt(matches,uptoDate){
+    function cumPts(matches,uptoDate){
       if(!uptoDate) return 0;
-      var s=0;
-      matches.forEach(function(m){if(m.date&&m.date<=uptoDate) s+=(m.points||0)+(m.booster_pts||0);});
-      return s;
+      return matches.reduce(function(s,m){return s+(m.date&&m.date<=uptoDate?(m.points||0)+(m.booster_pts||0):0);},0);
     }
 
-    var avgCorrect=classement.length?classement.reduce(function(s,e){return s+(e.nbr_prono_exact||0);},0)/classement.length:0;
-
     var out=classement.map(function(e){
-      var matches=playersData[e.name]||[];
-      var qualif_points=qualifMap[e.name]||0;
-      var booster_points=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
+      /* lookup insensible aux accents */
+      var matches=playersData[norm(e.name)]||[];
+      var qualif_pts=qualifMap[e.name]||0;
+      var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var boosters_used=matches.filter(function(m){return m.booster&&m.booster!==''&&m.booster!=='...';}).length;
-      var total_points=(e.points||0)+qualif_points+booster_points;
+      var total_points=(e.points||0)+qualif_pts+booster_pts;
       var risk=computePlayerRisk(matches,team_info);
-      var missedPronos=matches.filter(function(m){var p=(m.prono||'').trim();return m.played&&(!p||p==='...');}).length;
+      var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
       return{
         name:e.name,
         points:total_points,
         basePoints:e.points||0,
-        qualifPoints:qualif_points,
-        boosters:booster_points,
+        qualifPoints:qualif_pts,
+        boosters:booster_pts,
         boostersUsed:boosters_used,
         correct:e.nbr_prono_exact||0,
         exact:e.nbr_score_exact||0,
@@ -257,19 +273,19 @@ window.__loadAllData=function(){
         missedPronos:missedPronos,
         nMatchs:nMatchsJoues,
         matches:matches,
-        _ptsNow:qualif_points+cumPtsAt(matches,lastCompleted),
-        _ptsPrev:qualif_points+cumPtsAt(matches,prevCompleted)
+        _ptsNow:qualif_pts+cumPts(matches,lastJ),
+        _ptsPrev:qualif_pts+cumPts(matches,prevJ)
       };
     });
 
-    /* Delta de rang : journée complète précédente → dernière journée complète */
-    if(prevCompleted){
+    /* Delta rang entre journée précédente et actuelle */
+    if(prevJ){
       var byNow=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
       var byPrev=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
-      var rankNow={},rankPrev={};
-      byNow.forEach(function(p,i){rankNow[p.name]=i+1;});
-      byPrev.forEach(function(p,i){rankPrev[p.name]=i+1;});
-      out.forEach(function(p){p.delta=rankPrev[p.name]-rankNow[p.name];});
+      var rNow={},rPrev={};
+      byNow.forEach(function(p,i){rNow[p.name]=i+1;});
+      byPrev.forEach(function(p,i){rPrev[p.name]=i+1;});
+      out.forEach(function(p){p.delta=(rPrev[p.name]||0)-(rNow[p.name]||0);});
     } else {
       out.forEach(function(p){p.delta=0;});
     }
@@ -294,38 +310,41 @@ window.__loadAllData=function(){
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
     {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
-    {key:"guez",      label:"GUEZ",           sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
+    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
     {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
   ];
   function getZone(d){
     var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;
-    if(x>=50&&y>0) return"genie";
-    if(x<50&&y>0)  return"platdupied";
-    if(x>=50&&y<=0)return"foudubas";
-    return"guez";
+    if(x>=50&&y>0)  return"genie";
+    if(x<50&&y>0)   return"platdupied";
+    if(x>=50&&y<=0) return"foudubas";
+    return"timberland";
   }
-  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",guez:"#B8C8E0",foudubas:"#E8A098"};
+  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
-  function Cross(props){var s=props.size||10,c=props.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
-  function ST(p){return(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cross size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cross size={8}/></div>);}
+  function Cross(p){var s=p.size||10,c=p.color||"#DDD8D0";return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
+  function ST(p){return(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cross size={8}/><span className="mono" style={{color:"#8A8480",fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid #DDD8D0"}}/><Cross size={8}/></div>);}
   function RiskDot(props){var z=getZone(props.payload);return<g><circle cx={props.cx} cy={props.cy} r={6} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={0.9}/></g>;}
 
   function MiniPodium(props){
     var top3=props.data.slice().sort(function(a,b){return b.val-a.val;}).filter(function(d){return d.val>0;}).slice(0,3);
-    return(<div style={{border:"1px solid "+P.line,padding:"16px 18px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,paddingBottom:8,borderBottom:"1px solid "+P.line}}>
+    return(<div style={{border:"1px solid #DDD8D0",padding:"16px 18px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,paddingBottom:8,borderBottom:"1px solid #DDD8D0"}}>
         <div style={{width:7,height:7,borderRadius:"50%",background:props.color,flexShrink:0}}/>
-        <p className="mono" style={{color:P.muted,fontSize:8,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{props.title}</p>
+        <p className="mono" style={{color:"#8A8480",fontSize:8,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{props.title}</p>
       </div>
-      {top3.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>— à venir —</p>
-        :top3.map(function(d,i){var idx=props.players.findIndex(function(p){return p.name===d.name;});return(
-          <div key={d.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<2?10:0}}>
-            <span className="mono" style={{color:P.muted,fontSize:9,fontWeight:700,width:18,flexShrink:0}}>{("0"+(i+1)).slice(-2)}</span>
+      {top3.length===0
+        ?<p className="mono" style={{color:"#8A8480",fontSize:8}}>— à venir —</p>
+        :top3.map(function(d,i){
+          var idx=props.players.findIndex(function(p){return p.name===d.name;});
+          return(<div key={d.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<2?10:0}}>
+            <span className="mono" style={{color:"#8A8480",fontSize:9,fontWeight:700,width:18,flexShrink:0}}>{("0"+(i+1)).slice(-2)}</span>
             <div style={{width:6,height:6,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
-            <span className="serif" style={{color:P.text,fontSize:13,flex:1}}>{d.name}</span>
-            <span className="mono" style={{color:P.text,fontSize:11,fontWeight:i===0?700:400}}>{d.val}{d.unit||""}</span>
-          </div>
-        );})}
+            <span className="serif" style={{color:"#1A1816",fontSize:13,flex:1}}>{d.name}</span>
+            <span className="mono" style={{color:"#1A1816",fontSize:11,fontWeight:i===0?700:400}}>{d.val}{d.unit||""}</span>
+          </div>);
+        })
+      }
     </div>);
   }
 
@@ -355,56 +374,48 @@ window.__loadAllData=function(){
     },[]);
 
     function tog(name){setFocused(function(p){return p.indexOf(name)>=0?p.filter(function(n){return n!==name;}):p.concat([name]);});}
-    var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
-    var SCAT=players.map(function(p,i){return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:p.audace+((i*7+3)%5)*2.2-5.5,y:p.adjR+((i*11+5)%7)*2.0-6.0};});
+    var TT={background:"#FDFCF9",border:"1px solid #DDD8D0",fontFamily:"'Space Mono',monospace",fontSize:10,color:"#1A1816",padding:"10px 14px"};
 
-    /* Données progression — rang par journée complète */
+    /* Données progression : rang par journée */
+    var datesForProg=completedDates.length>0?completedDates:playedDates;
+    var enCours=playedDates.filter(function(d){return completedDates.indexOf(d)<0;});
+    var progDates=datesForProg.concat(enCours.length>0?[enCours[enCours.length-1]+"__partial"]:[]);
+
     var progData=(function(){
-      if(completedDates.length===0) return [];
-      return completedDates.map(function(d){
+      if(players.length===0||datesForProg.length===0&&enCours.length===0) return [];
+      return progDates.map(function(raw){
+        var isPartial=raw.indexOf('__partial')>=0;
+        var d=isPartial?raw.replace('__partial',''):raw;
         var ptsAt={};
         players.forEach(function(p){
-          ptsAt[p.name]=0;
-          (p.matches||[]).forEach(function(m){if(m.date&&m.date<=d) ptsAt[p.name]+=(m.points||0)+(m.booster_pts||0);});
+          ptsAt[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?(m.points||0)+(m.booster_pts||0):0);},0);
         });
-        var sorted=players.slice().sort(function(a,b){return ptsAt[b.name]-ptsAt[a.name];});
-        var row={j:d.slice(5)};
-        sorted.forEach(function(p,i){row[p.name]=i+1;});
+        var srtd=players.slice().sort(function(a,b){return ptsAt[b.name]-ptsAt[a.name];});
+        var row={j:d.slice(5)+(isPartial?" ⟳":"")};
+        srtd.forEach(function(p,i){row[p.name]=i+1;});
         return row;
       });
     })();
-    /* Journée en cours (partielle) */
-    var enCours=playedDates.filter(function(d){return completedDates.indexOf(d)<0;});
-    if(enCours.length>0){
-      var lastPartial=enCours[enCours.length-1];
-      var ptsAt={};
-      players.forEach(function(p){
-        ptsAt[p.name]=0;
-        (p.matches||[]).forEach(function(m){if(m.date&&m.date<=lastPartial) ptsAt[p.name]+=(m.points||0)+(m.booster_pts||0);});
-      });
-      var sortedP=players.slice().sort(function(a,b){return ptsAt[b.name]-ptsAt[a.name];});
-      var rowP={j:lastPartial.slice(5)+" ⟳"};
-      sortedP.forEach(function(p,i){rowP[p.name]=i+1;});
-      progData=progData.concat([rowP]);
-    }
 
+    var SCAT=players.map(function(p,i){return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:p.audace+((i*7+3)%5)*2.2-5.5,y:p.adjR+((i*11+5)%7)*2.0-6.0};});
     var P0=players[0]||{name:'—',points:0};
-    var bestExact=players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;},{name:'—',exact:0});
+    var bestExact=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
 
     if(loading) return(
-      <div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{background:"#F7F4EF",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
         <div style={{textAlign:"center"}}>
-          <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p>
-          <p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p>
+          <p className="mono" style={{color:"#8A8480",fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p>
+          <p className="serif" style={{color:"#1A1816",fontSize:22}}>Récupération des données…</p>
+          <p className="mono" style={{color:"#8A8480",fontSize:8,marginTop:8}}>Google Sheets · {PLAYER_SHEETS.length} onglets</p>
         </div>
       </div>
     );
     if(error) return(
-      <div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}>
-        <div style={{maxWidth:480,textAlign:"center"}}>
-          <p className="mono" style={{color:"#E8A098",fontSize:9,letterSpacing:"0.2em",marginBottom:12}}>⚠ ERREUR</p>
-          <p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p>
-          <p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>
+      <div style={{background:"#F7F4EF",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}>
+        <div style={{maxWidth:520,textAlign:"center"}}>
+          <p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR DE CHARGEMENT</p>
+          <p className="serif" style={{color:"#1A1816",fontSize:18,marginBottom:12}}>{error}</p>
+          <p className="mono" style={{color:"#8A8480",fontSize:8,lineHeight:1.8}}>
             Vérifiez que le sheet est public (Partager → Tout le monde → Lecteur)<br/>
             et que les noms d'onglets correspondent à PLAYER_SHEETS
           </p>
@@ -413,66 +424,77 @@ window.__loadAllData=function(){
     );
 
     return(
-      <div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
+      <div style={{background:"#F7F4EF",minHeight:"100vh",padding:"28px 20px"}}>
         <div style={{maxWidth:820,margin:"0 auto"}}>
 
-          <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,position:"relative"}}>
-            <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC · {players.length} JOUEURS ✦</p>
-            <h1 className="serif" style={{color:P.text,fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Pronostics Dashboard</h1>
+          {/* Header */}
+          <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid #DDD8D0",position:"relative"}}>
+            <p className="mono" style={{color:"#8A8480",fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC · {players.length} JOUEURS ✦</p>
+            <h1 className="serif" style={{color:"#1A1816",fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Pronostics Dashboard</h1>
             <div style={{position:"absolute",top:0,left:0}}><Cross size={10}/></div>
             <div style={{position:"absolute",top:0,right:0}}><Cross size={10}/></div>
           </div>
 
+          {/* Stats bar */}
           <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
-            {[{label:"LEADER",val:P0.name+(P0.points?" · "+P0.points+" pts":"")},{label:"MATCHS JOUÉS",val:String(nMatchs)},{label:"TIREUR PRÉCIS",val:bestExact.name+" · "+(bestExact.exact||0)+" exact"+(bestExact.exact>1?"s":"")}].map(function(k,i,arr){return(
-              <div key={k.label} style={{padding:"0 18px",borderRight:i<arr.length-1?"1px solid "+P.line:"none",textAlign:"center"}}>
-                <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.label}</p>
-                <p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.val}</p>
+            {[
+              {label:"LEADER",       val:P0.name+(P0.points?" · "+P0.points+" pts":"")},
+              {label:"MATCHS JOUÉS", val:String(nMatchs)},
+              {label:"TIREUR PRÉCIS",val:bestExact.name+" · "+(bestExact.exact||0)+" exact"+(bestExact.exact>1?"s":"")}
+            ].map(function(k,i,arr){return(
+              <div key={k.label} style={{padding:"0 18px",borderRight:i<arr.length-1?"1px solid #DDD8D0":"none",textAlign:"center"}}>
+                <p className="mono" style={{color:"#8A8480",fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.label}</p>
+                <p className="mono" style={{color:"#1A1816",fontSize:11,fontWeight:700}}>{k.val}</p>
               </div>
             );})}
           </div>
 
-          <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid "+P.line}}>
-            {TABS.map(function(t){return(<button key={t} onClick={function(){setTab(t);}} className="mono" style={{background:"transparent",border:"none",borderBottom:tab===t?"2px solid "+P.text:"2px solid transparent",color:tab===t?P.text:P.muted,fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",padding:"8px 16px",cursor:"pointer",marginBottom:-1}}>{t}</button>);})}
+          {/* Tabs */}
+          <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid #DDD8D0"}}>
+            {TABS.map(function(t){return(<button key={t} onClick={function(){setTab(t);}} className="mono" style={{background:"transparent",border:"none",borderBottom:tab===t?"2px solid #1A1816":"2px solid transparent",color:tab===t?"#1A1816":"#8A8480",fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",padding:"8px 16px",cursor:"pointer",marginBottom:-1}}>{t}</button>);})}
           </div>
 
           {/* ── CLASSEMENT ── */}
           {tab==="Classement"&&(
-            <div style={{background:P.card,padding:"18px 22px"}}>
+            <div style={{background:"#FDFCF9",padding:"18px 22px"}}>
               <ST>{nMatchs} match{nMatchs!==1?"s":""} joué{nMatchs!==1?"s":""} · classement général</ST>
+
+              {/* Top 3 */}
               <div style={{display:"flex",gap:8,marginBottom:16}}>
                 {players.slice(0,3).map(function(p,i){
                   var grads=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
                   var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
-                  return(<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:grads[i],position:"relative",overflow:"hidden"}}>
+                  return(<div key={p.name} style={{flex:1,border:"1px solid #DDD8D0",padding:"14px 16px",background:grads[i],position:"relative",overflow:"hidden"}}>
                     <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
                     <p className="mono" style={{color:cs[i],fontSize:8,letterSpacing:"0.2em",marginBottom:4}}>#{i+1}</p>
-                    <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2}}>{p.name}</p>
+                    <p className="serif" style={{color:"#1A1816",fontSize:17,marginBottom:2}}>{p.name}</p>
                     {p.delta!==0&&<p className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,marginBottom:2}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</p>}
-                    <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4}}>{p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span></p>
-                    <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
+                    <p className="mono" style={{color:"#1A1816",fontSize:22,fontWeight:700,lineHeight:1,marginTop:4}}>{p.points}<span style={{fontSize:9,color:"#8A8480",fontWeight:400}}> PTS</span></p>
+                    <p className="mono" style={{color:"#8A8480",fontSize:8,marginTop:6}}>
                       {p.correct} correct{p.correct!==1?"s":""}
                       {p.boosters>0&&<span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>+{p.boosters} boost</span>}
                     </p>
                   </div>);
                 })}
               </div>
+
+              {/* Liste */}
               <div style={{display:"flex",flexDirection:"column"}}>
                 {players.slice(3).map(function(p,i){
                   var rank=i+4,isLast3=rank>players.length-3,c=WHEEL[rank%WHEEL.length];
-                  return(<div key={p.name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:isLast3?"#F2DADA22":"transparent"}}>
-                    <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rank).slice(-2)}</span>
+                  return(<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid #DDD8D044",background:isLast3?"#F2DADA22":"transparent"}}>
+                    <span className="mono" style={{color:"#8A8480",fontSize:8,width:22,flexShrink:0}}>{("0"+rank).slice(-2)}</span>
                     <div style={{width:5,height:5,borderRadius:"50%",background:isLast3?"#C8A0A0":c,flexShrink:0}}/>
-                    <span className="serif" style={{color:isLast3?"#A88080":P.text,fontSize:13,flex:1}}>{p.name}</span>
+                    <span className="serif" style={{color:isLast3?"#A88080":"#1A1816",fontSize:13,flex:1}}>{p.name}</span>
                     {p.delta!==0
                       ?<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,width:28,textAlign:"right",flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>
                       :<span style={{width:28,flexShrink:0}}/>}
-                    <span className="mono" style={{color:P.muted,fontSize:8,width:38,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
+                    <span className="mono" style={{color:"#8A8480",fontSize:8,width:38,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
                     {p.boosters>0
-                      ?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:44,flexShrink:0,textAlign:"right"}}>+{p.boosters}</span>
-                      :<span style={{width:44,flexShrink:0}}/>}
-                    <span className="mono" style={{color:isLast3?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
-                    <span className="mono" style={{color:P.muted,fontSize:7,width:16}}>PTS</span>
+                      ?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:"#8A8480",width:50,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>
+                      :<span style={{width:50,flexShrink:0}}/>}
+                    <span className="mono" style={{color:isLast3?"#C09090":"#1A1816",fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
+                    <span className="mono" style={{color:"#8A8480",fontSize:7,width:16}}>PTS</span>
                   </div>);
                 })}
               </div>
@@ -481,44 +503,45 @@ window.__loadAllData=function(){
 
           {/* ── PROGRESSION ── */}
           {tab==="Progression"&&(
-            <div style={{background:P.card,padding:"18px 22px"}}>
+            <div style={{background:"#FDFCF9",padding:"18px 22px"}}>
               <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
               <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
-                {players.map(function(p,i){var color=WHEEL[i%WHEEL.length],isFoc=focused.indexOf(p.name)>=0,isOn=focused.length===0||isFoc;return(<button key={p.name} onClick={function(){tog(p.name);}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(isFoc?color:P.line),background:isFoc?color+"18":"transparent",opacity:isOn?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:color}}/><span className="mono" style={{color:isFoc?color:P.text,fontSize:8,fontWeight:isFoc?700:400}}>{p.name}</span></button>);})}
-                {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕ tout afficher</span></button>}
+                {players.map(function(p,i){var color=WHEEL[i%WHEEL.length],isFoc=focused.indexOf(p.name)>=0,isOn=focused.length===0||isFoc;return(<button key={p.name} onClick={function(){tog(p.name);}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(isFoc?color:"#DDD8D0"),background:isFoc?color+"18":"transparent",opacity:isOn?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:color}}/><span className="mono" style={{color:isFoc?color:"#1A1816",fontSize:8,fontWeight:isFoc?700:400}}>{p.name}</span></button>);})}
+                {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid #8A8480",background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:"#8A8480",fontSize:8}}>✕ tout afficher</span></button>}
               </div>
               {progData.length===0
-                ?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée complète pour l'instant.</p>
+                ?<p className="mono" style={{color:"#8A8480",fontSize:8}}>Aucune journée disponible pour l'instant.</p>
                 :<div>
-                  <p className="mono" style={{color:P.muted,fontSize:7,marginBottom:8,letterSpacing:"0.1em"}}>#1 EN HAUT · #28 EN BAS · ⟳ JOURNÉE EN COURS</p>
+                  <p className="mono" style={{color:"#8A8480",fontSize:7,marginBottom:8,letterSpacing:"0.1em"}}>#1 EN HAUT · ⟳ JOURNÉE EN COURS</p>
                   <ResponsiveContainer width="100%" height={340}>
                     <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
-                      <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
-                      <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
-                      <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
+                      <CartesianGrid stroke="#DDD8D0" strokeOpacity={0.4}/>
+                      <XAxis dataKey="j" tick={{fill:"#8A8480",fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:"#DDD8D0"}} tickLine={false}/>
+                      <YAxis reversed domain={[1,players.length||28]} tick={{fill:"#8A8480",fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
                       <Tooltip contentStyle={TT} formatter={function(val,name){return["#"+val,name];}}/>
                       {players.map(function(p,i){var color=WHEEL[i%WHEEL.length],isFoc=focused.indexOf(p.name)>=0,isOn=focused.length===0||isFoc;return<Line key={p.name} type="linear" dataKey={p.name} stroke={color} strokeWidth={isFoc?2.5:isOn?1.2:0.6} strokeOpacity={isOn?1:0.04} dot={false} legendType="none"/>;})}</LineChart>
                   </ResponsiveContainer>
-                </div>}
+                </div>
+              }
             </div>
           )}
 
           {/* ── RISQUES ── */}
           {tab==="Risques"&&(
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{background:P.card,padding:"18px 22px"}}>
+              <div style={{background:"#FDFCF9",padding:"18px 22px"}}>
                 <div style={{position:"relative",height:420}}>
-                  {ZONES.map(function(z){var pos=Object.assign({position:"absolute"},z.corner);return(<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"3px 7px",border:"1px solid "+z.c+"66",background:P.card+"F0"})}><p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em"}}>{z.label}</p></div>);})}
+                  {ZONES.map(function(z){var pos=Object.assign({position:"absolute"},z.corner);return(<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"3px 7px",border:"1px solid "+z.c+"66",background:"#FDFCF9F0"})}><p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em"}}>{z.label}</p></div>);})}
                   <ResponsiveContainer width="100%" height={420}>
                     <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                      {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.13}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
-                      <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
+                      {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.13}/>;})}<ReferenceLine x={50} stroke="#8A8480" strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke="#8A8480" strokeDasharray="3 3" strokeWidth={1.5}/>
+                      <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:"#DDD8D0"}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:"#8A8480",fontFamily:"'Space Mono',monospace"}}/>
                       <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
-                      <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(props){
-                        if(!props.active||!props.payload||!props.payload.length)return null;
-                        var d=props.payload[0].payload;
+                      <Tooltip cursor={{stroke:"#DDD8D0",strokeDasharray:"3 3"}} content={function(p){
+                        if(!p.active||!p.payload||!p.payload.length)return null;
+                        var d=p.payload[0].payload;
                         var reussite=nMatchs>0?Math.round(d.correct/nMatchs*100):0;
-                        return(<div style={Object.assign({},TT)}><p style={{fontWeight:700,marginBottom:6}}>#{d.rank} · {d.name}</p><p style={{color:P.muted,margin:"3px 0"}}>Score d'audace : {d.audace}%</p><p style={{color:P.muted,margin:"3px 0"}}>Taux de réussite : {reussite}%</p></div>);
+                        return(<div style={Object.assign({},TT)}><p style={{fontWeight:700,marginBottom:6}}>#{d.rank} · {d.name}</p><p style={{color:"#8A8480",margin:"3px 0"}}>Score d'audace : {d.audace}%</p><p style={{color:"#8A8480",margin:"3px 0"}}>Taux de réussite : {reussite}%</p></div>);
                       }}/>
                       <Scatter data={SCAT} shape={<RiskDot/>}/>
                     </ScatterChart>
@@ -526,7 +549,7 @@ window.__loadAllData=function(){
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {ZONES.map(function(z){var count=players.filter(function(p){return getZone({x:p.audace,y:p.adjR})===z.key;}).length;return(<div key={z.key} style={{padding:"10px 14px",border:"1px solid "+z.c,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p className="mono" style={{color:z.c,fontSize:9,fontWeight:700,marginBottom:3}}>{z.label}</p><p className="mono" style={{color:P.muted,fontSize:7}}>{z.sub}</p></div><span className="mono" style={{color:z.c,fontSize:18,fontWeight:700}}>{count}</span></div>);})}
+                {ZONES.map(function(z){var count=players.filter(function(p){return getZone({x:p.audace,y:p.adjR})===z.key;}).length;return(<div key={z.key} style={{padding:"10px 14px",border:"1px solid "+z.c,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p className="mono" style={{color:z.c,fontSize:9,fontWeight:700,marginBottom:3}}>{z.label}</p><p className="mono" style={{color:"#8A8480",fontSize:7}}>{z.sub}</p></div><span className="mono" style={{color:z.c,fontSize:18,fontWeight:700}}>{count}</span></div>);})}
               </div>
             </div>
           )}
@@ -541,6 +564,7 @@ window.__loadAllData=function(){
               </div>
             </div>
           )}
+
         </div>
       </div>
     );
