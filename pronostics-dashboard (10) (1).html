@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pronostics CDM 2026 – Rattepit FC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Cormorant+Garamond:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:#F7F4EF}
+    .mono{font-family:'Space Mono',monospace}
+    .serif{font-family:'Cormorant Garamond',serif}
+    button{font-family:inherit}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+/* ═══════════════════════════════════════════════════════
+   CONFIG — seule section à modifier
+   ═══════════════════════════════════════════════════════ */
+
+var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
+
+/*  Noms exacts des onglets dans le Google Sheet.
+    Par défaut = noms des joueurs. Ajuster si différent. */
+var PLAYER_TAB_NAMES = [
+  "Joris","Aymeric","Noé","Ricco","Steph","Goyt","Jess",
+  "Stan","Marina","Clara","Laura","Chloé","Pata","Erwan",
+  "Micka","Jeje","Hugo O.","Paco","Hugo C.","Mathys",
+  "Dam's","Cyrille","Léna","Vero","Nikola","Greg","Kalash","Shervan"
+];
+
+/*  Indices de colonnes (0 = colonne A).
+    Passer DEBUG_MODE à true et ouvrir la console pour vérifier
+    que les bonnes valeurs sont parsées. */
+var DEBUG_MODE = false;
+var COL = {
+  DATE:    0,   // A
+  MATCH:   1,   // B  → "A vs C"
+  PRONO:   5,   // F  → "A", "B", "N"…
+  RESULT:  3,   // D  → "2 - 1" (score réel, rempli quand joué)
+  COTE:    8,   // I  → "1-3", "2-1", "nul"…
+  SCORED:  9    // J  → rempli quand match est scoré
+};
+
+/*  Probabilités de réussite attendue par tier de risque.
+    SAFE=72% | MS=56% | NULbal=26% | NULdés=15% | MR=40% | RISQUÉ=20% */
+var P_EXPECTED = {0:0.72, 25:0.56, 26:0.26, 50:0.15, 75:0.40, 100:0.20};
+
+/*  Journées — une entrée par journée.
+    complete:true dès que TOUS les matchs de la journée ont col J remplie.
+    Mis à jour automatiquement par la logique de fetch. */
+var JOURNEE_DATES = [
+  {id:"J1", date:"2026-06-11", label:"J1 · 11/06"},
+  {id:"J2", date:"2026-06-12", label:"J2 · 12/06"}
+  /* Ajouter les journées suivantes ici */
+];
+
+/* ═══════════════════════════════════════════════════════
+   FIN CONFIG
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Helpers ── */
+function parseGvizCSV(text) {
+  var lines = text.trim().split('\n');
+  return lines.slice(1).map(function(line) {
+    /* CSV simple : gère les guillemets doubles */
+    var result = [], cur = '', inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      var c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    result.push(cur.trim());
+    return result;
+  }).filter(function(r) { return r.some(function(c) { return c !== ''; }); });
+}
+
+function audaceFromCote(cote) {
+  if (!cote) return null;
+  var c = cote.toString().trim().toLowerCase();
+  if (c === '' || c === '...') return null;
+  if (c === 'nul') return 50; /* NUL : déséquilibré par défaut, sera raffiné */
+  var parts = c.split('-').map(Number);
+  if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+  var r1 = parts[0], r2 = parts[1];
+  var diff = Math.abs(r1 - r2);
+  if (r1 < r2) return diff >= 2 ? 0 : 25;   /* SAFE ou MS */
+  else          return diff >= 2 ? 100 : 75;  /* RISQUÉ ou MR */
+}
+
+function expectedProb(audaceScore) {
+  if (audaceScore === null) return 0.50;
+  if (audaceScore === 0)   return 0.72;
+  if (audaceScore === 25)  return 0.56;
+  if (audaceScore === 50)  return 0.15;
+  if (audaceScore === 75)  return 0.40;
+  if (audaceScore === 100) return 0.20;
+  return 0.50;
+}
+
+function parseBetResult(matchStr, prono, resultStr) {
+  /* Détermine si le pari est correct et si le score est exact */
+  if (!matchStr || !prono || !resultStr) return {correct: false, exact: false};
+  var parts = matchStr.split(' vs ').map(function(s){return s.trim();});
+  if (parts.length !== 2) return {correct: false, exact: false};
+  var teamA = parts[0], teamB = parts[1];
+  var scores = resultStr.toString().replace(/\s/g,'').split(/[-:]/).map(Number);
+  if (scores.length < 2 || isNaN(scores[0]) || isNaN(scores[1])) return {correct: false, exact: false};
+  var sA = scores[0], sB = scores[1];
+  var winner = sA > sB ? teamA : sB > sA ? teamB : 'N';
+  var correct = prono.toString().trim().toUpperCase() === winner.toUpperCase();
+  return {correct: correct, exact: false}; /* exact score à implémenter si colonne disponible */
+}
+
+function computePlayerStats(rows, playerName) {
+  var scoredRows = rows.filter(function(r) {
+    return r[COL.SCORED] && r[COL.SCORED].toString().trim() !== '' && r[COL.SCORED].toString().trim() !== '...';
+  });
+
+  if (DEBUG_MODE) {
+    console.log('[DEBUG]', playerName, '— premières lignes scorées :', scoredRows.slice(0,3));
+  }
+
+  var nMatchs = scoredRows.length;
+  var correct = 0, exact = 0;
+  var audaceSum = 0, audaceCount = 0;
+  var actualSum = 0, expectedSum = 0;
+
+  scoredRows.forEach(function(r) {
+    var prono   = (r[COL.PRONO]  || '').toString().trim();
+    var cote    = (r[COL.COTE]   || '').toString().trim();
+    var matchS  = (r[COL.MATCH]  || '').toString().trim();
+    var resultS = (r[COL.RESULT] || '').toString().trim();
+
+    var bet = parseBetResult(matchS, prono, resultS);
+    if (bet.correct) correct++;
+    if (bet.exact)   exact++;
+
+    var aud = audaceFromCote(cote);
+    if (aud !== null) {
+      audaceSum  += aud;
+      audaceCount++;
+      actualSum  += bet.correct ? 1 : 0;
+      expectedSum += expectedProb(aud);
+    }
+  });
+
+  var audace = audaceCount > 0 ? Math.round(audaceSum / audaceCount) : 0;
+  var adjR   = audaceCount > 0 ? Math.round((actualSum / audaceCount - expectedSum / audaceCount) * 100) : 0;
+
+  return {nMatchs: nMatchs, correct: correct, exact: exact, audace: audace, adjR: adjR};
+}
+
+function fetchTab(tabName) {
+  var url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID
+          + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tabName);
+  return fetch(url).then(function(r) { return r.text(); }).then(parseGvizCSV);
+}
+
+window.__fetchAllPlayers = function() {
+  return Promise.all(
+    PLAYER_TAB_NAMES.map(function(name) {
+      return fetchTab(name).then(function(rows) {
+        return {name: name, rows: rows};
+      }).catch(function(e) {
+        console.warn('Impossible de charger l\'onglet :', name, e);
+        return {name: name, rows: []};
+      });
+    })
+  );
+};
+</script>
+<script type="text/babel" data-presets="react">
+  var useState=React.useState, useEffect=React.useEffect;
+  var LineChart=Recharts.LineChart,Line=Recharts.Line;
+  var ScatterChart=Recharts.ScatterChart,Scatter=Recharts.Scatter;
+  var ReferenceArea=Recharts.ReferenceArea,ReferenceLine=Recharts.ReferenceLine;
+  var XAxis=Recharts.XAxis,YAxis=Recharts.YAxis;
+  var CartesianGrid=Recharts.CartesianGrid,Tooltip=Recharts.Tooltip;
+  var ResponsiveContainer=Recharts.ResponsiveContainer;
+
+  var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
+  var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
+  var TABS=["Classement","Progression","Risques","Podium"];
+
+  var ZONES=[
+    {key:"platdupied",label:"PLAT DU PIED",  sub:"Prudent · surperforme",      c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
+    {key:"genie",     label:"GÉNIE",          sub:"Audacieux · surperforme",    c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
+    {key:"timberland",label:"TIMBERLAND",     sub:"Prudent · sous-performe",    c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
+    {key:"foudubas",  label:"FOU DU BUS",     sub:"Audacieux · sous-performe",  c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
+  ];
+  function getZone(d){
+    var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;
+    if(x>=50&&y>0)return"genie"; if(x<50&&y>0)return"platdupied";
+    if(x>=50&&y<=0)return"foudubas"; return"timberland";
+  }
+  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
+
+  function Cross(props){var s=props.size||10,c=props.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
+  function ST(props){return(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cross size={8}/><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{props.children}</p><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cross size={8}/></div>);}
+  function RiskDot(props){var z=getZone(props.payload);return<g><circle cx={props.cx} cy={props.cy} r={6} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={0.9}/></g>;}
+  function MiniPodium(props){
+    var top3=props.data.slice().sort(function(a,b){return b.val-a.val;}).filter(function(d){return d.val>0;}).slice(0,3);
+    return(<div style={{border:"1px solid "+P.line,padding:"16px 18px"}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,paddingBottom:8,borderBottom:"1px solid "+P.line}}><div style={{width:7,height:7,borderRadius:"50%",background:props.color,flexShrink:0}}/><p className="mono" style={{color:P.muted,fontSize:8,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{props.title}</p></div>{top3.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>— à venir —</p>:top3.map(function(d,i){var idx=props.players.findIndex(function(p){return p.name===d.name;});return(<div key={d.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<top3.length-1?10:0}}><span className="mono" style={{color:P.muted,fontSize:9,fontWeight:700,width:18,flexShrink:0}}>{("0"+(i+1)).slice(-2)}</span><div style={{width:6,height:6,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/><span className="serif" style={{color:P.text,fontSize:13,flex:1}}>{d.name}</span><span className="mono" style={{color:P.text,fontSize:11,fontWeight:i===0?700:400}}>{d.val}{d.unit||""}</span></div>);})}</div>);
+  }
+
+  function buildDerivedData(players) {
+    if (!players || players.length === 0) return null;
+    /* Rang actuel */
+    var sorted = players.slice().sort(function(a,b){return b.points-a.points;});
+    sorted.forEach(function(p,i){p.rank=i+1;});
+    /* N_MATCHS_JOUES = max des nMatchs parmi tous les joueurs */
+    var nMatchs = Math.max.apply(null, players.map(function(p){return p.nMatchs||0;}));
+    /* Rangs précédents → on cherche le dernier "jalon journée" */
+    /* Pour l'instant on garde le delta vs J1 si disponible */
+    players.forEach(function(p){ p.delta = 0; p.rankPrev = p.rank; });
+    return {players: sorted, nMatchs: nMatchs};
+  }
+
+  function App(){
+    var ls=useState(true);var loading=ls[0],setLoading=ls[1];
+    var es=useState(null);var error=es[0],setError=es[1];
+    var ps=useState(null);var players=ps[0],setPlayers=ps[1];
+    var nm=useState(0);var nMatchs=nm[0],setNMatchs=nm[1];
+    var ts=useState("Classement");var tab=ts[0],setTab=ts[1];
+    var fs=useState([]);var focused=fs[0],setFocused=fs[1];
+
+    useEffect(function(){
+      if (SHEET_ID === 'VOTRE_SHEET_ID_ICI') {
+        setError('Sheet ID manquant — remplacer VOTRE_SHEET_ID_ICI dans le code');
+        setLoading(false); return;
+      }
+      window.__fetchAllPlayers().then(function(results) {
+        var parsed = results.map(function(r) {
+          var stats = computePlayerStats(r.rows, r.name);
+          return {
+            name: r.name,
+            points: 0, /* sera calculé si colonne points disponible */
+            correct: stats.correct,
+            exact: stats.exact,
+            rank: 1,
+            rankPrev: 1,
+            delta: 0,
+            boosters: 0,
+            audace: stats.audace,
+            adjR: stats.adjR,
+            missedPronos: stats.nMatchs === 0 ? 1 : 0,
+            nMatchs: stats.nMatchs
+          };
+        });
+        var maxN = Math.max.apply(null, parsed.map(function(p){return p.nMatchs;}));
+        var sorted = parsed.slice().sort(function(a,b){return b.correct-a.correct;});
+        sorted.forEach(function(p,i){p.rank=i+1;});
+        setPlayers(sorted);
+        setNMatchs(maxN);
+        setLoading(false);
+      }).catch(function(e){
+        setError('Erreur de chargement : ' + e.message + '. Vérifiez que le sheet est accessible publiquement.');
+        setLoading(false);
+      });
+    }, []);
+
+    function tog(name){setFocused(function(p){return p.indexOf(name)>=0?p.filter(function(n){return n!==name;}):p.concat([name]);});}
+    var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
+
+    if (loading) return (
+      <div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{textAlign:"center"}}>
+          <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:16}}>✦ CHARGEMENT ✦</p>
+          <p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p>
+          <p className="mono" style={{color:P.muted,fontSize:8,marginTop:8}}>Google Sheets · {PLAYER_TAB_NAMES.length} onglets</p>
+        </div>
+      </div>
+    );
+
+    if (error) return (
+      <div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}>
+        <div style={{maxWidth:480,textAlign:"center"}}>
+          <p className="mono" style={{color:"#E8A098",fontSize:9,letterSpacing:"0.2em",marginBottom:12}}>⚠ ERREUR</p>
+          <p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p>
+          <p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>
+            1. Le sheet doit être public (Partager → Tout le monde avec le lien → Lecteur)<br/>
+            2. Remplacer VOTRE_SHEET_ID_ICI par l'ID du sheet<br/>
+            3. Vérifier les noms des onglets dans PLAYER_TAB_NAMES
+          </p>
+        </div>
+      </div>
+    );
+
+    var P0=players[0]||{name:'—',points:0};
+    var bestExact=(players||[]).reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;},{name:'—',exact:0});
+    var SCAT=(players||[]).map(function(p,i){return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:p.audace+((i*7+3)%5)*2.2-5.5,y:p.adjR+((i*11+5)%7)*2.0-6.0};});
+
+    return(
+      <div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
+        <div style={{maxWidth:820,margin:"0 auto"}}>
+
+          <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,position:"relative"}}>
+            <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC · {players.length} JOUEURS ✦</p>
+            <h1 className="serif" style={{color:P.text,fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1,marginBottom:6}}>Pronostics Dashboard</h1>
+            <div style={{position:"absolute",top:0,left:0}}><Cross size={10}/></div>
+            <div style={{position:"absolute",top:0,right:0}}><Cross size={10}/></div>
+          </div>
+
+          <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
+            {[
+              {label:"LEADER",       val:P0.name+(P0.points?" · "+P0.points+" pts":"")},
+              {label:"MATCHS JOUÉS", val:String(nMatchs)},
+              {label:"TIREUR PRÉCIS",val:bestExact.name+" · "+(bestExact.exact||0)+" exact"+(bestExact.exact>1?"s":"")}
+            ].map(function(k,i,arr){return(
+              <div key={k.label} style={{padding:"0 18px",borderRight:i<arr.length-1?"1px solid "+P.line:"none",textAlign:"center"}}>
+                <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.label}</p>
+                <p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.val}</p>
+              </div>
+            );})}</div>
+
+          <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid "+P.line}}>
+            {TABS.map(function(t){return(
+              <button key={t} onClick={function(){setTab(t);}} className="mono" style={{background:"transparent",border:"none",borderBottom:tab===t?"2px solid "+P.text:"2px solid transparent",color:tab===t?P.text:P.muted,fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",padding:"8px 16px",cursor:"pointer",marginBottom:-1}}>{t}</button>
+            );})}</div>
+
+          {/* ── CLASSEMENT ── */}
+          {tab==="Classement"&&(
+            <div style={{background:P.card,padding:"18px 22px"}}>
+              <ST>Classement · {nMatchs} match{nMatchs>1?"s":""} joué{nMatchs>1?"s":""}</ST>
+              <div style={{display:"flex",gap:8,marginBottom:16}}>
+                {(players||[]).slice(0,3).map(function(p,i){
+                  var grads=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
+                  var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
+                  return(<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:grads[i],position:"relative",overflow:"hidden"}}>
+                    <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
+                    <p className="mono" style={{color:cs[i],fontSize:8,letterSpacing:"0.2em",marginBottom:4}}>#{i+1}</p>
+                    <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2}}>{p.name}</p>
+                    {p.delta!==0&&<p className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,marginBottom:2}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</p>}
+                    <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4}}>{p.points||p.correct+" corr."}</p>
+                    <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>{p.correct} correct{p.correct>1?"s":""}{p.boosters>0&&<span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>+{p.boosters} boost</span>}</p>
+                  </div>);
+                })}
+              </div>
+              <div style={{display:"flex",flexDirection:"column"}}>
+                {(players||[]).slice(3).map(function(p,i){
+                  var rank=i+4,isLast3=rank>players.length-3,c=WHEEL[rank%WHEEL.length];
+                  return(<div key={p.name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:isLast3?"#F2DADA22":"transparent"}}>
+                    <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rank).slice(-2)}</span>
+                    <div style={{width:5,height:5,borderRadius:"50%",background:isLast3?"#C8A0A0":c,flexShrink:0}}/>
+                    <span className="serif" style={{color:isLast3?"#A88080":P.text,fontSize:13,flex:1}}>{p.name}</span>
+                    {p.delta!==0?<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,width:30,textAlign:"right",flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>:<span style={{width:30,flexShrink:0}}/>}
+                    <span className="mono" style={{color:P.muted,fontSize:8,width:40,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
+                    <span className="mono" style={{color:isLast3?"#C09090":P.text,fontSize:13,fontWeight:700,width:60,textAlign:"right",flexShrink:0}}>{p.points||"—"}</span>
+                    <span className="mono" style={{color:P.muted,fontSize:7,width:16}}>PTS</span>
+                  </div>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── PROGRESSION ── */}
+          {tab==="Progression"&&(
+            <div style={{background:P.card,padding:"18px 22px"}}>
+              <ST>Évolution du rang · cliquer pour isoler</ST>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
+                {(players||[]).map(function(p,i){var color=WHEEL[i%WHEEL.length],isFoc=focused.indexOf(p.name)>=0,isOn=focused.length===0||isFoc;return(<button key={p.name} onClick={function(){tog(p.name);}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(isFoc?color:P.line),background:isFoc?color+"18":"transparent",opacity:isOn?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:color}}/><span className="mono" style={{color:isFoc?color:P.text,fontSize:8,fontWeight:isFoc?700:400}}>{p.name}</span></button>);})}
+                {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕ tout afficher</span></button>}
+              </div>
+              <p className="mono" style={{color:P.muted,fontSize:7,marginBottom:8,letterSpacing:"0.1em"}}>À compléter une fois plusieurs journées disponibles.</p>
+            </div>
+          )}
+
+          {/* ── RISQUES ── */}
+          {tab==="Risques"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{background:P.card,padding:"18px 22px"}}>
+                <div style={{position:"relative",height:420}}>
+                  {ZONES.map(function(z){
+                    var pos=Object.assign({position:"absolute"},z.corner);
+                    return(<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"3px 7px",border:"1px solid "+z.c+"66",background:P.card+"F0"})}><p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em"}}>{z.label}</p></div>);
+                  })}
+                  <ResponsiveContainer width="100%" height={420}>
+                    <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
+                      {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.13}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
+                      <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
+                      <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
+                      <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(props){
+                        if(!props.active||!props.payload||!props.payload.length)return null;
+                        var d=props.payload[0].payload;
+                        var reussite=nMatchs>0?Math.round(d.correct/nMatchs*100):0;
+                        return(<div style={Object.assign({},TT)}><p style={{fontWeight:700,marginBottom:6}}>#{d.rank} · {d.name}</p><p style={{color:P.muted,margin:"3px 0"}}>Score d'audace : {d.audace}%</p><p style={{color:P.muted,margin:"3px 0"}}>Taux de réussite : {reussite}%</p></div>);
+                      }}/>
+                      <Scatter data={SCAT} shape={<RiskDot/>}/>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {ZONES.map(function(z){var count=(players||[]).filter(function(p){return getZone({x:p.audace,y:p.adjR})===z.key;}).length;return(<div key={z.key} style={{padding:"10px 14px",border:"1px solid "+z.c,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p className="mono" style={{color:z.c,fontSize:9,fontWeight:700,marginBottom:3}}>{z.label}</p><p className="mono" style={{color:P.muted,fontSize:7}}>{z.sub}</p></div><span className="mono" style={{color:z.c,fontSize:18,fontWeight:700}}>{count}</span></div>);})}</div>
+            </div>
+          )}
+
+          {/* ── PODIUM ── */}
+          {tab==="Podium"&&(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                <MiniPodium title="Meilleur boosteur" color={WHEEL[0]} players={players||[]} data={(players||[]).map(function(p){return{name:p.name,val:p.boosters||0,unit:" pts"};})}/>
+                <MiniPodium title="Scores exacts" color={WHEEL[3]} players={players||[]} data={(players||[]).map(function(p){return{name:p.name,val:p.exact||0};})}/>
+                <MiniPodium title="Les Oublis" color={WHEEL[1]} players={players||[]} data={(players||[]).map(function(p){return{name:p.name,val:p.missedPronos||0,unit:" manqué"+(p.missedPronos>1?"s":"")};})}/>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.render(React.createElement(App,null),document.getElementById("root"));
+</script>
+</body>
+</html>
