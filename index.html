@@ -159,16 +159,25 @@ function toVX(a){
 }
   
 function computeRisk(matches){
-  var AUDACE_SEUIL = 50;
-  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
-  matches.forEach(function(m){
-    var ap=getAP(m);if(!ap)return;
-    if(ap.a >= AUDACE_SEUIL) aSum++;
-aCnt++;
-    if(m.played){actS+=m.correct?1:0;expS+=ap.p;pCnt++;}
-  });
+  var AUDACE_SEUIL_BAS = 30;
+var AUDACE_SEUIL_HAUT = 70;
+
+var audaceScore = 0;
+var aCnt = 0;
+
+matches.forEach(function(m){
+  var ap = getAP(m);
+  if(!ap) return;
+
+  // score progressif au lieu de binaire
+  if(ap.a <= AUDACE_SEUIL_BAS) audaceScore += 0;
+  else if(ap.a >= AUDACE_SEUIL_HAUT) audaceScore += 1;
+  else audaceScore += 0.5;
+
+  aCnt++;
+});
   return{
-    audace: aCnt > 0 ? Math.round((aSum / aCnt) * 100) : 50,
+audace: aCnt > 0 ? Math.round((audaceScore / aCnt) * 100) : 50,
     adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
   };
 }
