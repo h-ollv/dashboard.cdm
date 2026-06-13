@@ -472,10 +472,15 @@ Object.keys(pronoCounts).forEach(function(k){
                   {p.name}
                   {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
                 </span>
-                <span className="mono" style={{color:P.muted,fontSize:8,width:36,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
-                {p.boosters>0?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:48,flexShrink:0}}/>}
-                <span className="mono" style={{color:last?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
                 {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",marginLeft:4,background:p.streakHot>=2?"#A8C49030":"#9BB6C930",color:p.streakHot>=2?"#5a7a4a":"#3a5a78",flexShrink:0}}>{p.streakHot>=2?"🔥"+p.streakHot:"🧊"+p.streakCold}</span>}
+
+<span className="mono" style={{color:P.muted,fontSize:8,width:52,flexShrink:0,textAlign:"right"}}>
+  {p.correct}/{nM}
+</span>
+
+{p.boosters>0?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:48,flexShrink:0}}/>}
+
+<span className="mono" style={{color:last?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
               </div>;
             })}
           </div>
