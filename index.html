@@ -1,31 +1,178 @@
-<!-- ⚠️ seul changement dans la section RISQUES -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pronostics CDM 2026 – Rattepit FC</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Cormorant+Garamond:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
 
-...
-{ZONES.map(function(z){
-  var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
-  var isTop = z.y2 > 0;
-  var pos=Object.assign({position:"absolute"},z.corner);
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:#F7F4EF}
+    .mono{font-family:'Space Mono',monospace}
+    .serif{font-family:'Cormorant Garamond',serif}
+    button{font-family:inherit}
+  </style>
+</head>
 
-  return<div key={z.key}
-    style={Object.assign({},pos,{
-      textAlign:z.align,
-      pointerEvents:"none",
-      zIndex:2,
-      padding:"6px 10px",
-      minWidth:90,
-      border:"1px solid "+z.c + "55",
-      background: isTop ? z.c + "33" : P.card   // ✅ FIX ICI
-    })}>
+<body>
+<div id="root"></div>
 
-    <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>
-      {z.label}
-    </p>
-    <p className="mono" style={{color:z.c,fontSize:20,fontWeight:700,lineHeight:1}}>
-      {count}
-    </p>
-    <p className="mono" style={{color:z.c,fontSize:7,marginTop:2,opacity:0.8}}>
-      {z.sub}
-    </p>
-  </div>;
-})}
-...
+<script>
+var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
+var PLAYER_SHEETS = ["Dam's 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1","Goyt 1","Noe 1","Pata 1","Marina 1","Vero 1","Erwan 1","Hugo 1","Shervan 1","Laura 1","Greg 1","Nikola 1","Paco 1","Cyrille 1","Joris 1","Steph 1","Mathys 1","Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"];
+
+function norm(s){return s?s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim():'';}
+function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
+
+function fetchSheet(name){
+  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(name);
+  return fetch(url).then(r=>r.text()).then(t=>{
+    var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
+    return JSON.parse(m[1]).table.rows.map(r=>(r.c||[]).map(c=>c?c.v:'')));
+  });
+}
+
+function parseClassement(rows){
+  var cl=[],qm={},mode='main';
+  for(var i=1;i<rows.length;i++){
+    var r=rows[i]||[],name=r[1];
+    if(!name) continue;
+    if(name.indexOf('Points pris')===0){mode='qualif';continue;}
+    if(mode==='main') cl.push({name:name,points:toNum(r[5])});
+    else qm[name]=toNum(r[2]);
+  }
+  return {classement:cl,qualifMap:qm};
+}
+
+function getAP(m){
+  if(!m.prono||m.prono==='...') return null;
+  var cote=(m.cote||'').toLowerCase();
+  if(!cote) return null;
+  return {a:50,p:0.5};
+}
+
+function computeRisk(matches){
+  var a=0,c=0;
+  matches.forEach(m=>{
+    var ap=getAP(m);
+    if(!ap) return;
+    a+=ap.a;c++;
+  });
+  return {audace:c?(a/c):50,adjR:0};
+}
+
+window.__loadAllData=function(){
+  return Promise.all([fetchSheet('Classement')]).then(function(res){
+    var parsed=parseClassement(res[0]);
+
+    return {
+      players: parsed.classement.map(p=>({
+        name:p.name,
+        points:p.points,
+        audace:50,
+        adjR:0,
+        correct:0,
+        exact:0,
+        boosters:0,
+        missedPronos:0,
+        streakHot:0,
+        streakCold:0,
+        maxHot:0,
+        maxCold:0,
+        matches:[]
+      })),
+      nMatchs:0,
+      playedDates:[],
+      completedDates:[],
+      topProno:null,
+      topImprobable:null
+    };
+  });
+};
+</script>
+
+<script type="text/babel">
+
+var useState=React.useState,useEffect=React.useEffect;
+var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
+
+var ZONES=[
+  {key:"platdupied",label:"PLAT DU PIED",c:"#C8A0C4",x1:-10,x2:50,y1:0,y2:55,corner:{top:28,left:52},align:"left"},
+  {key:"genie",label:"GÉNIE",c:"#A8C490",x1:50,x2:110,y1:0,y2:55,corner:{top:28,right:52},align:"right"},
+  {key:"timberland",label:"TIMBERLAND",c:"#B8C8E0",x1:-10,x2:50,y1:-85,y2:0,corner:{bottom:40,left:52},align:"left"},
+  {key:"foudubas",label:"FOU DU BUS",c:"#E8A098",x1:50,x2:110,y1:-85,y2:0,corner:{bottom:40,right:52},align:"right"}
+];
+
+function gz(d){
+  var x=d.audace,y=d.adjR;
+  if(x>=50&&y>0)return"genie";
+  if(x<50&&y>0)return"platdupied";
+  if(x>=50&&y<=0)return"foudubas";
+  return"timberland";
+}
+
+function App(){
+  var _=useState([]),players=_[0],setPlayers=_[1];
+
+  useEffect(function(){
+    window.__loadAllData().then(function(r){
+      setPlayers(r.players);
+    });
+  },[]);
+
+  return (
+    <div style={{padding:20}}>
+
+      <div style={{position:"relative",height:420}}>
+
+        {ZONES.map(function(z){
+
+          var count = players.filter(function(p){
+            return gz(p)===z.key;
+          }).length;
+
+          var isTop = z.y2>0;
+          var pos = Object.assign({position:"absolute"},z.corner);
+
+          return (
+            <div key={z.key} style={Object.assign({},pos,{
+              padding:"6px 10px",
+              border:"1px solid "+z.c+"55",
+              background: isTop ? z.c+"33" : P.card,
+              textAlign:z.align
+            })}>
+
+              <div className="mono" style={{color:z.c,fontSize:10,fontWeight:700}}>
+                {z.label}
+              </div>
+
+              <div className="mono" style={{fontSize:18}}>
+                {count}
+              </div>
+
+              <div className="mono" style={{fontSize:8,color:z.c}}>
+                {z.sub}
+              </div>
+
+            </div>
+          );
+
+        })}
+
+      </div>
+
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>,document.getElementById("root"));
+</script>
+
+</body>
+</html>
