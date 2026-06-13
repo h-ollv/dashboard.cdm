@@ -217,25 +217,6 @@ window.__loadAllData=function(){
 
     var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
     var refM=pData[refKey]||[];
-    var allPlayedMatches = refM
-  .filter(function(m){return m.played;})
-  .sort(function(a,b){
-    if(a.date!==b.date) return a.date<b.date?-1:1;
-    return 0;
-  });
-
-allPlayedMatches.forEach(function(m,i){
-  m.matchIndex = i + 1;
-});
-    function getPtsAtIndex(matches, idx){
-  if(!matches || !matches.length) return 0;
-
-  var played = matches
-    .filter(function(m){return m && m.played;})
-    .sort(function(a,b){
-      if(a.date!==b.date) return a.date<b.date?-1:1;
-      return 0;
-    });
 
     var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
 
@@ -247,7 +228,13 @@ refM.forEach(function(m){
 });
 
 var allDates=Object.keys(byDate).sort();
+function cumPtsUntil(matches, date){
+  if(!date) return 0;
 
+  return matches.reduce(function(s,m){
+    return s + (m.date && m.date <= date ? (m.points || 0) : 0);
+  },0);
+}
 var playedDates=allDates.filter(function(d){
   return byDate[d].some(function(m){return m.played;});
 });
@@ -255,37 +242,9 @@ var playedDates=allDates.filter(function(d){
 var completedDates=allDates.filter(function(d){
   return byDate[d].length>0&&byDate[d].every(function(m){return m.played;});
 });
+var lastDate = completedDates[completedDates.length - 1];
+var prevDate = completedDates[completedDates.length - 2] || null;
 
-/* progression classement = match précédent */
-var playedMatches=refM
-  .filter(function(m){return m.played&&m.date;})
-  .sort(function(a,b){
-    if(a.date!==b.date) return a.date<b.date?-1:1;
-    return 0;
-  });
-
-var lastPlayedMatch = playedMatches.length;
-
-var previousPlayedMatch = 0;
-if (playedMatches.length >= 2) {
-  var lastDate = playedMatches[playedMatches.length - 1].date;
-  var prevDate = null;
-
-  for (var i = playedMatches.length - 2; i >= 0; i--) {
-    if (playedMatches[i].date !== lastDate) {
-      prevDate = playedMatches[i].date;
-      break;
-    }
-  }
-
-  if (prevDate) {
-    previousPlayedMatch = playedMatches.filter(function(m){
-      return m.date <= prevDate;
-    }).length;
-  } else {
-    previousPlayedMatch = lastPlayedMatch - 1;
-  }
-}
 
     function cumPts(matches,upto){
   if(!upto)return 0;
@@ -308,36 +267,7 @@ function cumPtsMatch(matches,n){
 }
 
     var out=classement.map(function(e){
-      var matches=(pData[norm(e.name)]||[]);
-      if(!Array.isArray(matches)) matches=[];
-      var idxNow = allPlayedMatches.length;
-var idxPrev = Math.max(0, idxNow - 1);
-
-function getRank(matches, n){
-  var pts = {};
-
-  players.forEach(function(p){
-    pts[p.name] = (p.matches || []).reduce(function(s,m){
-      return s + (m.played && m.date && m.date <= (allPlayedMatches[n-1]?.date || '') ? m.points : 0);
-    },0);
-  });
-
-  return players.slice().sort(function(a,b){
-    return pts[b.name] - pts[a.name];
-  });
-}
-
-// classement actuel
-var rN = {};
-getRank(players, idxNow).forEach(function(p,i){ rN[p.name]=i+1; });
-
-// classement N-1
-var rP = {};
-getRank(players, idxPrev).forEach(function(p,i){ rP[p.name]=i+1; });
-
-out.forEach(function(p){
-  p.delta = (rP[p.name] || 0) - (rN[p.name] || 0);
-});
+      var matches=pData[norm(e.name)]||[];
       var total_points=e.points||0;
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var risk=computeRisk(matches);
@@ -500,15 +430,6 @@ Object.keys(pronoCounts).forEach(function(k){
   var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
-  function deltaBadge(d, size){
-  if(d>0){
-    return React.createElement("span",{className:"mono",style:{color:"#A8C490",fontSize:size}},"↑"+d);
-  }
-  if(d<0){
-    return React.createElement("span",{className:"mono",style:{color:"#E8A098",fontSize:size}},"↓"+Math.abs(d));
-  }
-  return React.createElement("span",{className:"mono",style:{color:P.muted,fontSize:size}},"=");
-}
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
     {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
@@ -592,7 +513,7 @@ Object.keys(pronoCounts).forEach(function(k){
       var pts={};
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
       var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
-      return{label:"J"+(idx+1)+(iP?" (en cours)":""),date: (d || '').slice(5),leader:sr[0]?sr[0].name:'—',pts:sr[0]?pts[sr[0].name]:0};
+      return{label:"J"+(idx+1)+(iP?" (en cours)":""),date:d.slice(5),leader:sr[0]?sr[0].name:'—',pts:sr[0]?pts[sr[0].name]:0};
     });
 
     var leaderStreak=0;
@@ -651,7 +572,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
                   {i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11}}>🔥{leaderStreak}</span>}
-                  {deltaBadge(p.delta,9)}
+                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:9}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
                 </p>
                 <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4,display:"flex",alignItems:"baseline",gap:6}}>
                   {p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span>
@@ -673,7 +594,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
                 <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
-                  {deltaBadge(p.delta,8)}
+                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
                 </span>
                 {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",marginLeft:4,background:p.streakHot>=2?"#A8C49030":"#9BB6C930",color:p.streakHot>=2?"#5a7a4a":"#3a5a78",flexShrink:0}}>{p.streakHot>=2?"🔥"+p.streakHot:"🧊"+p.streakCold}</span>}
 
