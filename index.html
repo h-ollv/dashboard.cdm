@@ -139,11 +139,14 @@ function getAP(m){
     }
     return{a:50,p:0.15};
   }
-  /* Non-NUL : côte = "gagnant_rang-perdant_rang" */
+  /* Non-NUL : côte = "rang_equipeA_du_match - rang_equipeB_du_match" (ordre fixe, indépendant du pari) */
   if(cote==='nul') return null; /* incohérent */
   var cp=cote.split('-').map(Number);
   if(cp.length!==2||isNaN(cp[0])||isNaN(cp[1])) return null;
-  var diff=cp[1]-cp[0]; /* positif = pari sur le favori */
+  var mp=(m.match||'').split(' vs ').map(function(s){return s.trim();});
+  var pickedIsB = mp.length===2 && prono===mp[1];
+  /* diff positif = l'équipe pariée est plus favorite (rang plus bas) que l'adversaire */
+  var diff = pickedIsB ? (cp[0]-cp[1]) : (cp[1]-cp[0]);
   if(diff>=2)  return{a:0,  p:0.72};
   if(diff===1) return{a:25, p:0.56};
   if(diff===0) return{a:25, p:0.50};
@@ -264,8 +267,7 @@ window.__loadAllData=function(){
   function Pod(props){
     var top3=props.data.slice().sort(function(a,b){return b.val-a.val;}).filter(function(d){return d.val>0;}).slice(0,3);
     return<div style={{border:"1px solid "+P.line,padding:"16px 18px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,paddingBottom:8,borderBottom:"1px solid "+P.line}}>
-        <div style={{width:7,height:7,borderRadius:"50%",background:props.color,flexShrink:0}}/>
+      <div style={{marginBottom:12,paddingBottom:8,borderBottom:"1px solid "+P.line}}>
         <p className="mono" style={{color:P.muted,fontSize:8,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{props.title}</p>
       </div>
       {top3.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>— à venir —</p>
