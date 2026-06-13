@@ -10,20 +10,14 @@
   <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
 
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{background:#F6F3EE}
-    .serif{font-family:'Cormorant Garamond',serif}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:#F5F2EC}
     .mono{font-family:'Space Mono',monospace}
-
+    .serif{font-family:'Cormorant Garamond',serif}
     button{font-family:inherit}
-
-    /* suppression du gras global */
-    b,strong{font-weight:400}
-
-    .num{font-weight:700}
   </style>
 </head>
 
@@ -31,11 +25,14 @@
 <div id="root"></div>
 
 <script>
-/* ===================== */
-/* DATA UTILS (inchangé) */
-/* ===================== */
 var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
-var PLAYER_SHEETS=[/* inchangé */];
+
+var PLAYER_SHEETS = [
+  "Dam's 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1",
+  "Goyt 1","Noe 1","Pata 1","Marina 1","Vero 1","Erwan 1","Hugo 1","Shervan 1",
+  "Laura 1","Greg 1","Nikola 1","Paco 1","Cyrille 1","Joris 1","Steph 1","Mathys 1",
+  "Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"
+];
 
 function norm(s){return s?s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim():'';}
 function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
@@ -45,159 +42,206 @@ function fetchSheet(name){
   return fetch(url).then(r=>r.text()).then(t=>{
     var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
     var json=JSON.parse(m[1]);
-    return (json.table.rows||[]).map(row=>(row.c||[]).map(c=>c?c.v:''));
+    return (json.table.rows||[]).map(r=>(r.c||[]).map(c=>c?c.v:''));
   });
 }
 
-/* ===================== */
-/* PALETTE NEUTRE EDITO  */
-/* ===================== */
-var P={
-  bg:"#F6F3EE",
+function parseClassement(rows){
+  var cl=[],qm={},mode='main';
+  for(var i=1;i<rows.length;i++){
+    var r=rows[i]||[],name=r[1];
+    if(!name) continue;
+    if(String(name).indexOf('Points pris')===0){mode='qualif';continue;}
+    if(mode==='main') cl.push({name:name,correct:toNum(r[2]),exact:toNum(r[3]),points:toNum(r[5])});
+    else qm[name]=toNum(r[2]);
+  }
+  return{classement:cl,qualifMap:qm};
+}
+
+function parsePlayerSheet(rows){
+  var name=(rows[0]&&rows[0][1])||'';
+  var matches=[],block=[],curPoule=null;
+
+  function flush(){
+    if(!block.length) return;
+    var teams={};
+
+    block.forEach(r=>{
+      if(r[0]&&r[0].indexOf('Equipe')===0) teams[r[0].replace('Equipe','').trim()]=r[1];
+    });
+
+    block.forEach(r=>{
+      var rencontre=r[4];
+      if(!rencontre||rencontre.indexOf(' vs ')<0) return;
+
+      var parts=rencontre.split(' vs ');
+      matches.push({
+        poule:curPoule,
+        match:rencontre,
+        team_a:teams[parts[0]]||parts[0],
+        team_b:teams[parts[1]]||parts[1],
+        prono:(r[5]||'').toString().trim(),
+        scorePred:(r[6]||'').toString().trim(),
+        cote:(r[8]||'').toString().trim(),
+        points:toNum(r[12]),
+        played:true
+      });
+    });
+  }
+
+  for(var i=5;i<rows.length;i++){
+    var rw=rows[i]||[];
+    if(rw[0]&&rw[0].indexOf('Poule')===0){flush();block=[];curPoule=rw[0];continue;}
+    block.push(rw);
+  }
+  flush();
+
+  return{name:name,matches:matches};
+}
+
+function computeRisk(matches){
+  var a=0,c=0;
+  matches.forEach(m=>{a+=20;c++;});
+  return{audace:c?Math.round(a/c):50,adjR:0};
+}
+
+window.__loadAllData=function(){
+  return Promise.all([fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet)))
+  .then(res=>{
+    var parsed=parseClassement(res[0]);
+    var players=res.slice(1).map(parsePlayerSheet);
+
+    var out=parsed.classement.map(e=>{
+      var matches=players.find(p=>norm(p.name)===norm(e.name))?.matches||[];
+      return{
+        name:e.name,
+        points:e.points,
+        correct:e.correct,
+        exact:e.exact,
+        matches:matches,
+        audace:50,
+        adjR:0
+      };
+    });
+
+    return{players:out,nMatchs:matches.length};
+  });
+};
+</script>
+
+<script type="text/babel">
+
+const P = {
+  bg:"#F5F2EC",
   card:"#FFFFFF",
   text:"#111111",
   muted:"#6F6A63",
-  line:"#E6E0D8"
+  line:"#E6E0D6"
 };
 
-/* ===================== */
-/* APP UI               */
-/* ===================== */
-var useState=React.useState,useEffect=React.useEffect;
+const TABS=["Classement","Progression","Risques","Podium"];
 
 function App(){
 
-  var _p=useState([]),players=_p[0],setPlayers=_p[1];
-  var _l=useState(true),loading=_l[0],setLoading=_l[1];
-  var _e=useState(null),error=_e[0],setError=_e[1];
-  var _t=useState("Classement"),tab=_t[0],setTab=_t[1];
+  const [players,setPlayers]=React.useState([]);
+  const [tab,setTab]=React.useState("Classement");
+  const [loading,setLoading]=React.useState(true);
+  const [nM,setNM]=React.useState(0);
 
-  useEffect(function(){
-    window.__loadAllData().then(function(r){
-      setPlayers(r.players.sort((a,b)=>b.points-a.points));
-      setLoading(false);
-    }).catch(e=>{
-      setError(e.message);
+  React.useEffect(()=>{
+    window.__loadAllData().then(r=>{
+      setPlayers(r.players);
+      setNM(r.nMatchs);
       setLoading(false);
     });
   },[]);
 
-  var leader=players[0]||{name:"—",points:0};
+  if(loading){
+    return <div style={{padding:40,fontFamily:"serif"}}>Chargement…</div>;
+  }
 
-  if(loading) return <div style={{padding:40}}>Chargement...</div>;
-  if(error) return <div style={{padding:40}}>{error}</div>;
+  const leader = players[0]||{name:"—",points:0};
 
-  return(
-    <div style={{background:P.bg,minHeight:"100vh",padding:28}}>
+  return (
+    <div style={{background:P.bg,minHeight:"100vh",padding:24}}>
 
-      {/* ================= HEADER DESAXE ================= */}
+      {/* HEADER DÉSAXÉ */}
       <div style={{
         display:"flex",
         justifyContent:"space-between",
-        alignItems:"flex-end",
+        alignItems:"flex-start",
         borderBottom:"1px solid "+P.line,
-        paddingBottom:18,
-        marginBottom:22
+        paddingBottom:16,
+        marginBottom:20
       }}>
 
         <div>
-          <p className="mono" style={{fontSize:8,letterSpacing:"0.2em",color:P.muted}}>
-            COUPE DU MONDE 2026 · RATTEPIT FC
-          </p>
-          <h1 className="serif" style={{fontSize:34,color:P.text,fontWeight:400}}>
-            Pronostics
+          <h1 className="serif" style={{fontSize:28,fontWeight:400}}>
+            Pronostics 2026
           </h1>
+          <p className="mono" style={{fontSize:10,color:P.muted}}>
+            Rattepit FC
+          </p>
         </div>
 
-        <div style={{textAlign:"right"}}>
-          <p className="serif" style={{fontSize:14,color:P.text}}>
-            {leader.name}
-          </p>
-          <p className="mono num" style={{fontSize:10,color:P.muted}}>
-            {leader.points} pts
-          </p>
+        <div className="mono" style={{textAlign:"right",fontSize:10,color:P.muted}}>
+          {players.length} joueurs<br/>
+          {nM} matchs
         </div>
 
       </div>
 
-      {/* ================= TOP BAR ================= */}
+      {/* LEADER BAR SIMPLE */}
       <div style={{
         display:"flex",
         justifyContent:"space-between",
-        marginBottom:22
+        marginBottom:20
       }}>
 
-        <div>
-          <p className="serif">{leader.name}</p>
-          <p className="mono num" style={{fontSize:10,color:P.muted}}>
-            {leader.points} pts
-          </p>
+        <div className="serif" style={{fontSize:18}}>
+          {leader.name}
         </div>
 
-        <div>
-          <p className="mono">Matchs</p>
-          <p className="mono num">—</p>
-        </div>
-
-        <div>
-          <p className="mono">Série</p>
-          <p className="mono num">—</p>
+        <div className="mono" style={{fontSize:12}}>
+          <span style={{fontWeight:700}}>{leader.points}</span> pts
         </div>
 
       </div>
 
-      {/* ================= TABS ================= */}
-      <div style={{display:"flex",gap:16,borderBottom:"1px solid "+P.line,marginBottom:18}}>
-        {["Classement","Progression","Risques","Podium"].map(t=>(
-          <button
-            key={t}
-            onClick={()=>setTab(t)}
+      {/* TABS */}
+      <div style={{display:"flex",gap:10,borderBottom:"1px solid "+P.line,marginBottom:20}}>
+        {TABS.map(t=>(
+          <button key={t} onClick={()=>setTab(t)}
             style={{
               background:"none",
               border:"none",
               padding:"8px 0",
-              fontFamily:"Space Mono",
-              fontSize:9,
-              color:tab===t?P.text:P.muted,
-              borderBottom:tab===t?"1px solid "+P.text:"1px solid transparent"
-            }}
-          >
+              borderBottom:tab===t?"1px solid #111":"none",
+              color:tab===t?"#111":P.muted,
+              fontSize:10,
+              letterSpacing:1
+            }}>
             {t}
           </button>
         ))}
       </div>
 
-      {/* ================= CONTENT ================= */}
-      {tab==="Classement" &&
-        <div style={{background:P.card,padding:18,border:"1px solid "+P.line}}>
+      {/* CONTENT SIMPLE */}
+      {tab==="Classement"&&(
+        <div>
           {players.map((p,i)=>(
             <div key={p.name} style={{
               display:"flex",
               justifyContent:"space-between",
-              padding:"6px 0",
+              padding:"8px 0",
               borderBottom:"1px solid "+P.line
             }}>
-              <span className="serif">{p.name}</span>
-              <span className="mono num">{p.points}</span>
+              <div className="serif">{p.name}</div>
+              <div className="mono"><b>{p.points}</b></div>
             </div>
           ))}
         </div>
-      }
-
-      {tab==="Podium" &&
-        <div style={{background:P.card,padding:18,border:"1px solid "+P.line}}>
-          {players.slice(0,3).map((p,i)=>(
-            <div key={p.name} style={{
-              display:"flex",
-              justifyContent:"space-between",
-              padding:"8px 0"
-            }}>
-              <span className="serif">{i+1}. {p.name}</span>
-              <span className="mono num">{p.points}</span>
-            </div>
-          ))}
-        </div>
-      }
+      )}
 
     </div>
   );
@@ -205,5 +249,6 @@ function App(){
 
 ReactDOM.render(<App/>,document.getElementById("root"));
 </script>
+
 </body>
 </html>
