@@ -62,7 +62,7 @@ function parseClassement(rows){
     if(typeof name==='string'&&name.indexOf('Points pris')===0){mode='qualif';continue;}
     if(name==='Joueurs') continue;
     var n=String(name).trim();
-    if(mode==='main') cl.push({name:n,correct:toNum(r[2]),exact:toNum(r[3]),points:toNum(r[4])});
+    if(mode==='main') cl.push({name:n,correct:toNum(r[2]),exact:toNum(r[3]),points:toNum(r[5])});
     else qm[n]=toNum(r[2]);
   }
   return{classement:cl,qualifMap:qm};
@@ -210,12 +210,20 @@ window.__loadAllData=function(){
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var risk=computeRisk(matches);
       var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
+
+var playedM=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';}).sort(function(a,b){return (a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0);});
+var streakHot=0,streakCold=0;
+for(var si=playedM.length-1;si>=0;si--){
+  if(playedM[si].points>0){ if(streakCold>0)break; streakHot++; }
+  else { if(streakHot>0)break; streakCold++; }
+}
       return{
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
         audace:risk.audace, adjR:risk.adjR,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
+streakHot:streakHot, streakCold:streakCold,
         matches:matches,
         _ptsNow:cumPts(matches,lastJ),
         _ptsPrev:cumPts(matches,prevJ)
@@ -453,7 +461,7 @@ Object.keys(pronoCounts).forEach(function(k){
               return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F2DADA22":"transparent"}}>
                 <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
                 <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
-                <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1}}>{p.name}{p.streak>=2&&<span className="mono" style={{fontSize:9,marginLeft:5}}>🔥{p.streak}</span>}</span>
+                <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1}}>{p.name}{p.streakHot>=2&&<span className="mono" style={{fontSize:9,marginLeft:5}}>🔥{p.streakHot}</span>}{p.streakCold>=2&&<span className="mono" style={{fontSize:9,marginLeft:5}}>🧊{p.streakCold}</span>}</span>
                 {p.delta!==0?<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,width:28,textAlign:"right",flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>:<span style={{width:28,flexShrink:0}}/>}
                 <span className="mono" style={{color:P.muted,fontSize:8,width:36,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
                 {p.boosters>0?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:48,flexShrink:0}}/>}
