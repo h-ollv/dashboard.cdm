@@ -316,28 +316,27 @@ _ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
     });
 
     /* Delta rang */
-    // check si les classements ont réellement changé
-var bN = out.slice().sort(function(a,b){return b._ptsNow - a._ptsNow;});
+    var bN = out.slice().sort(function(a,b){return b._ptsNow - a._ptsNow;});
 var bP = out.slice().sort(function(a,b){return b._ptsPrev - a._ptsPrev;});
 
-var rN = {}, rP = {};
+var rN = {};
+var rP = {};
+
 bN.forEach(function(p,i){rN[p.name]=i+1;});
 bP.forEach(function(p,i){rP[p.name]=i+1;});
 
-// détection globale de changement
-var noChange = true;
 out.forEach(function(p){
-  if(rN[p.name] !== rP[p.name]) noChange = false;
-});
+  var now = rN[p.name];
+  var prev = rP[p.name];
 
-// assignation delta
-out.forEach(function(p){
-  if(noChange){
+  if(!now || !prev){
     p.delta = "=";
-  } else {
-    var diff = (rP[p.name]||0) - (rN[p.name]||0);
-    p.delta = (diff===0) ? "=" : diff;
+    return;
   }
+
+  var d = prev - now;
+
+  p.delta = (d === 0) ? "=" : d;
 });
 
     /* Streak leader */
@@ -589,15 +588,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
                   {i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11}}>🔥{leaderStreak}</span>}
-                  {p.delta!=="=" && p.delta!==0 && (
-  <span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:9}}>
-    {p.delta>0?"↑":"↓"}{Math.abs(p.delta)}
-  </span>
-)}
-
-{p.delta==="=" && (
-  <span className="mono" style={{color:"#8A8480",fontSize:9}}>=</span>
-)}
+                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:9}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
                 </p>
                 <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4,display:"flex",alignItems:"baseline",gap:6}}>
                   {p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span>
