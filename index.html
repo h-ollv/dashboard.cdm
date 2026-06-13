@@ -316,28 +316,16 @@ _ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
     });
 
     /* Delta rang */
-    var bN = out.slice().sort(function(a,b){return b._ptsNow - a._ptsNow;});
-var bP = out.slice().sort(function(a,b){return b._ptsPrev - a._ptsPrev;});
-
-var rN = {};
-var rP = {};
-
-bN.forEach(function(p,i){rN[p.name]=i+1;});
-bP.forEach(function(p,i){rP[p.name]=i+1;});
-
-out.forEach(function(p){
-  var now = rN[p.name];
-  var prev = rP[p.name];
-
-  if(!now || !prev){
-    p.delta = "=";
-    return;
-  }
-
-  var d = prev - now;
-
-  p.delta = (d === 0) ? "=" : d;
-});
+    if(previousPlayedMatch>0){
+      var bN=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
+      var bP=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
+      var rN={},rP={};
+      bN.forEach(function(p,i){rN[p.name]=i+1;});
+      bP.forEach(function(p,i){rP[p.name]=i+1;});
+      out.forEach(function(p){p.delta=(rP[p.name]||0)-(rN[p.name]||0);});
+    } else {
+      out.forEach(function(p){p.delta=0;});
+    }
 
     /* Streak leader */
     var leaderPerDate=completedDates.map(function(d){
@@ -588,7 +576,19 @@ Object.keys(pronoCounts).forEach(function(k){
                 <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
                   {i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11}}>🔥{leaderStreak}</span>}
-                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:9}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
+                  p.delta>0 ? (
+  <span className="mono" style={{color:"#A8C490",fontSize:9}}>
+    ↑{p.delta}
+  </span>
+) : p.delta<0 ? (
+  <span className="mono" style={{color:"#E8A098",fontSize:9}}>
+    ↓{Math.abs(p.delta)}
+  </span>
+) : (
+  <span className="mono" style={{color:P.muted,fontSize:9}}>
+    =
+  </span>
+)
                 </p>
                 <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4,display:"flex",alignItems:"baseline",gap:6}}>
                   {p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span>
@@ -610,7 +610,19 @@ Object.keys(pronoCounts).forEach(function(k){
                 <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
                 <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
-                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
+                  p.delta>0 ? (
+  <span className="mono" style={{color:"#A8C490",fontSize:8}}>
+    ↑{p.delta}
+  </span>
+) : p.delta<0 ? (
+  <span className="mono" style={{color:"#E8A098",fontSize:8}}>
+    ↓{Math.abs(p.delta)}
+  </span>
+) : (
+  <span className="mono" style={{color:P.muted,fontSize:8}}>
+    =
+  </span>
+)
                 </span>
                 {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",marginLeft:4,background:p.streakHot>=2?"#A8C49030":"#9BB6C930",color:p.streakHot>=2?"#5a7a4a":"#3a5a78",flexShrink:0}}>{p.streakHot>=2?"🔥"+p.streakHot:"🧊"+p.streakCold}</span>}
 
