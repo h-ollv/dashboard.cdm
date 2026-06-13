@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -24,7 +25,7 @@
 <script>
 var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
 var PLAYER_SHEETS = [
-  "Dam's 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1",
+  "Dams 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1",
   "Goyt 1","Noe 1","Pata 1","Marina 1","Vero 1","Erwan 1","Hugo 1","Shervan 1",
   "Laura 1","Greg 1","Nikola 1","Paco 1","Cyrille 1","Joris 1","Steph 1","Mathys 1",
   "Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"
@@ -71,6 +72,7 @@ function parseClassement(rows){
 function parsePlayerSheet(rows){
   var name=(rows[0]&&rows[0][1])||'';
   if(typeof name==='string'&&name.indexOf('Joueur :')===0) name=name.replace('Joueur :','').trim();
+  if(name==='Hugo.O') name='Hugo O.'; // alias : nom diffère entre l'onglet joueur et l'onglet Classement
   var matches=[],block=[],curPoule=null;
   function flush(){
     if(!block.length) return;
@@ -201,8 +203,8 @@ window.__loadAllData=function(){
 
     var out=classement.map(function(e){
       var matches=pData[norm(e.name)]||[];
-      var qualif_pts=qualifMap[e.name]||0;
-      var total_points=(e.points||0)+qualif_pts; /* e.points inclut déjà les boosters */
+      var qualif_pts=qualifMap[e.name]||0; // détail J1 (déjà inclus dans e.points, non ré-ajouté)
+      var total_points=e.points||0; /* e.points (onglet Classement) est déjà le total correct */
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var risk=computeRisk(matches);
       var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
@@ -213,8 +215,8 @@ window.__loadAllData=function(){
         audace:risk.audace, adjR:risk.adjR,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
         matches:matches,
-        _ptsNow:qualif_pts+cumPts(matches,lastJ),
-        _ptsPrev:qualif_pts+cumPts(matches,prevJ)
+        _ptsNow:cumPts(matches,lastJ),
+        _ptsPrev:cumPts(matches,prevJ)
       };
     });
 
