@@ -654,7 +654,7 @@ Object.keys(pronoCounts).forEach(function(k){
             <div style={{position:"relative",height:420,zIndex:2}}>
               {ZONES.map(function(z){
                 var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
-                var isTop=z.y1>=0;
+                var isTop = true;
                 var pos=Object.assign({position:"absolute"},z.corner);
                 return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"6px 10px",minWidth:90,border:"1px solid "+z.c + (isTop ? "55" : "25"),background:isTop ? z.c + "15" : P.card})}>
                   <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>{z.label}</p>
