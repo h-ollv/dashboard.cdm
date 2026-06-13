@@ -153,6 +153,11 @@ function getAP(m){
   return ap(diff);
 }
 
+function toVX(a){
+  if(a<25) return (a/25)*50;
+  return 50+((a-25)/75)*50;
+}
+  
 function computeRisk(matches){
   var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
   matches.forEach(function(m){
@@ -306,12 +311,12 @@ Object.keys(pronoCounts).forEach(function(k){
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
-    {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:25,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
-    {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:25, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
-    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:25, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
-    {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:25, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
+    {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
+    {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
+    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
+    {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
   ];
-  function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=25&&y>0)return"genie";if(x<25&&y>0)return"platdupied";if(x>=25&&y<=0)return"foudubas";return"timberland";}
+  function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
   var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
   function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
@@ -359,11 +364,11 @@ Object.keys(pronoCounts).forEach(function(k){
 
     function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
     var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
-    var SCAT=players.map(function(p,i){
-  var jx=((i*7+3)%5)*1.5-3;   /* jitter ±3 max */
-  var jy=((i*11+5)%7)*1.2-3.6; /* jitter ±3.6 max */
-  /* clamp pour rester dans la même zone */
-  var x=p.audace<50?Math.min(p.audace+jx,48.5):Math.max(p.audace+jx,51.5);
+    var SCAT=players.filter(function(p){return p.audace!==null;}).map(function(p,i){
+  var vx=toVX(p.audace);
+  var jx=((i*7+3)%5)*1.5-3;
+  var jy=((i*11+5)%7)*1.2-3.6;
+  var x=vx<50?Math.min(vx+jx,48.5):Math.max(vx+jx,51.5);
   var y=p.adjR<=0?Math.min(p.adjR+jy,-0.5):Math.max(p.adjR+jy,0.5);
   return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:x,y:y};
 });
@@ -502,7 +507,7 @@ Object.keys(pronoCounts).forEach(function(k){
               })}
               <ResponsiveContainer width="100%" height={420}>
                 <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={25} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
+                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
                   <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
                   <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
                   <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
