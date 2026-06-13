@@ -108,23 +108,9 @@ function parsePlayerSheet(rows){
     });
   }
   for(var i=5;i<rows.length;i++){
-  var rw=rows[i]||[];
-
-  console.log("RW0 =", rw[0]);
-
-  if(
-    rw[0] &&
-    typeof rw[0]==='string' &&
-    rw[0].indexOf('Poule')===0
-  ){
-    flush();
-    block=[];
-    curPoule=rw[0];
-    continue;
-  }
-
-  block.push(rw);
-}
+    var rw=rows[i]||[];
+    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){flush();block=[];curPoule=rw[0];continue;}
+    block.push(rw);
   }
   flush();
   return{name:name.trim()||null,matches:matches};
@@ -598,7 +584,7 @@ Object.keys(pronoCounts).forEach(function(k){
             </p>
           </div>}
           {divergentData.length>0&&<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:14}}>QUI A PARIÉ QUOI ?</p>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:14}}>PRONOS PAR MATCH</p>
             {(function(){
   var poules=Object.keys((function(){var b={};divergentData.forEach(function(v){if(v.poule&&v.poule!=='null')b[v.poule]=true;});return b;})()).sort();
   return<div style={{marginBottom:12}}>
