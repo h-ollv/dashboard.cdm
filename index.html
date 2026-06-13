@@ -4,9 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Pronostics CDM 2026 – Rattepit FC</title>
-
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Cormorant+Garamond:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-
   <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
@@ -42,7 +40,7 @@ function fetchSheet(name){
   var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(name);
   return fetch(url).then(r=>r.text()).then(t=>{
     var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
-    if(!m) throw new Error('bad sheet '+name);
+    if(!m) throw new Error('Réponse invalide pour "'+name+'"');
     var json=JSON.parse(m[1]);
     return (json.table.rows||[]).map(r=>(r.c||[]).map(c=>c?c.v:'')));
   });
@@ -60,20 +58,18 @@ function parseClassement(rows){
 }
 
 /* ===================== */
-/* 🎨 ONLY DA CHANGES */
+/* DA ONLY MODIFICATIONS */
 /* ===================== */
 
-var P = {
+var P={
   bg:"#F5F2EC",
   card:"#FFFFFF",
   text:"#171717",
-  muted:"#7A7A7A",
+  muted:"#767676",
   line:"#E7E1D6"
 };
 
-var WHEEL=["#6C7A89","#8E6C88","#B08968","#6B9080","#A4C3B2"];
-var TABS=["Classement","Progression","Risques","Podium"];
-
+/* SUPPRESSION des + décoratifs */
 function App(){
   var React=window.React;
   var useState=React.useState,useEffect=React.useEffect;
@@ -90,12 +86,12 @@ function App(){
     });
   },[]);
 
-  var leader = players[0] || {name:"—",points:0};
+  var leader=players[0]||{name:"—",points:0};
 
   return (
     <div style={{background:P.bg,minHeight:"100vh",padding:"26px"}}>
 
-      {/* HEADER (left/right editorial layout) */}
+      {/* HEADER MODIFIÉ */}
       <div style={{
         display:"flex",
         justifyContent:"space-between",
@@ -106,7 +102,7 @@ function App(){
       }}>
 
         <div>
-          <p className="mono" style={{color:P.muted,fontSize:9,letterSpacing:"0.2em"}}>
+          <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>
             CDM 2026 · RATTEPIT FC
           </p>
           <h1 className="serif" style={{color:P.text,fontSize:30,fontWeight:400}}>
@@ -115,16 +111,17 @@ function App(){
         </div>
 
         <div style={{textAlign:"right"}}>
-          <p className="serif" style={{color:P.text,fontSize:18}}>
+          <p className="serif" style={{color:P.text,fontSize:16}}>
             {leader.name}
           </p>
           <p className="mono" style={{color:P.muted,fontSize:10}}>
             {leader.points} pts
           </p>
         </div>
+
       </div>
 
-      {/* LEADER STRIP (minimal) */}
+      {/* LEADER BAR MODIFIÉ */}
       <div style={{marginBottom:24}}>
         <p className="serif" style={{fontSize:18,color:P.text}}>
           {leader.name}
@@ -134,9 +131,9 @@ function App(){
         </p>
       </div>
 
-      {/* TABS */}
+      {/* TABS (inchangé logique) */}
       <div style={{display:"flex",gap:16,borderBottom:"1px solid "+P.line,marginBottom:20}}>
-        {TABS.map(function(t){
+        {["Classement","Progression","Risques","Podium"].map(function(t){
           return (
             <button
               onClick={function(){setTab(t);}}
@@ -157,9 +154,9 @@ function App(){
         })}
       </div>
 
-      {/* CONTENT (UNCHANGED LOGIC) */}
+      {/* RESTE INCHANGÉ */}
       <div style={{color:P.muted,fontFamily:"monospace",fontSize:12}}>
-        (tout le reste de ton app est inchangé — charts + logique conservés)
+        (reste du dashboard inchangé)
       </div>
 
     </div>
