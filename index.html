@@ -253,25 +253,26 @@ window.__loadAllData=function(){
 
     /* Pari le plus populaire — après out défini */
     var pronoCounts={};
-    out.forEach(function(player){
-      (player.matches||[]).forEach(function(m){
-        if(!m.prono||m.prono==='...') return;
-        var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
-        var teamName;
-        if(m.prono.toUpperCase()==='N') teamName='Match nul';
-        else if(m.prono===parts[0]) teamName=m.team_a||parts[0];
-        else if(m.prono===parts[1]) teamName=m.team_b||parts[1];
-        else return;
-        var matchDisplay=(m.team_a||parts[0])+' vs '+(m.team_b||parts[1]);
-        var key=m.match+'|'+m.prono;
-        if(!pronoCounts[key]) pronoCounts[key]={count:0,teamName:teamName,matchDisplay:matchDisplay};
-        pronoCounts[key].count++;
-      });
-    });
-    var topProno=null;
-    Object.keys(pronoCounts).forEach(function(k){
-      if(!topProno||pronoCounts[k].count>topProno.count) topProno=pronoCounts[k];
-    });
+out.forEach(function(player){
+  (player.matches||[]).forEach(function(m){
+    if(!m.prono||m.prono==='...'||!m.team_a||!m.team_b) return;
+    var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
+    var teamName;
+    if(m.prono.toUpperCase()==='N') teamName='Match nul';
+    else if(m.prono===parts[0]) teamName=m.team_a;
+    else if(m.prono===parts[1]) teamName=m.team_b;
+    else return;
+    /* clé sur les vrais noms d'équipes, pas les lettres */
+    var matchDisplay=m.team_a+' vs '+m.team_b;
+    var key=matchDisplay+'|'+teamName;
+    if(!pronoCounts[key]) pronoCounts[key]={count:0,teamName:teamName,matchDisplay:matchDisplay};
+    pronoCounts[key].count++;
+  });
+});
+var topProno=null;
+Object.keys(pronoCounts).forEach(function(k){
+  if(!topProno||pronoCounts[k].count>topProno.count) topProno=pronoCounts[k];
+});
 
     /* Pari le plus improbable */
     var topImprobable=null,topAud=-1;
@@ -358,7 +359,14 @@ window.__loadAllData=function(){
 
     function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
     var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
-    var SCAT=players.map(function(p,i){return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:p.audace+((i*7+3)%5)*2.2-5.5,y:p.adjR+((i*11+5)%7)*2.0-6.0};});
+    var SCAT=players.map(function(p,i){
+  var jx=((i*7+3)%5)*1.5-3;   /* jitter ±3 max */
+  var jy=((i*11+5)%7)*1.2-3.6; /* jitter ±3.6 max */
+  /* clamp pour rester dans la même zone */
+  var x=p.audace<50?Math.min(p.audace+jx,48.5):Math.max(p.audace+jx,51.5);
+  var y=p.adjR<=0?Math.min(p.adjR+jy,-0.5):Math.max(p.adjR+jy,0.5);
+  return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:x,y:y};
+});
     var P0=players[0]||{name:'—',points:0};
     var bE=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
 
@@ -498,10 +506,21 @@ window.__loadAllData=function(){
                   <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
                   <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
                   <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
-                    if(!p.active||!p.payload||!p.payload.length)return null;
-                    var d=p.payload[0].payload,reussite=nM>0?Math.round(d.correct/nM*100):0,sign=d.adjR>=0?"+":"";
-                    return<div style={Object.assign({},TT)}><p style={{fontWeight:700,marginBottom:8}}>{d.name}</p><p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p><p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p><p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p></div>;
-                  }}/>
+  if(!p.active||!p.payload||!p.payload.length)return null;
+  var d=p.payload[0].payload;
+  var reussite=nM>0?Math.round(d.correct/nM*100):0;
+  var sign=d.adjR>=0?"+":"";
+  var zKey=gz({x:d.audace,y:d.adjR});
+  var zLabels={platdupied:"PLAT DU PIED",genie:"GÉNIE",timberland:"TIMBERLAND",foudubas:"FOU DU BUS"};
+  var zCol=ZC[zKey];
+  return<div style={Object.assign({},TT)}>
+    <p style={{fontWeight:700,marginBottom:4}}>{d.name}</p>
+    <p className="mono" style={{color:zCol,fontSize:8,fontWeight:700,letterSpacing:"0.12em",marginBottom:8}}>{zLabels[zKey]}</p>
+    <p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p>
+    <p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p>
+    <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
+  </div>;
+}}/>
                   <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
                 </ScatterChart>
               </ResponsiveContainer>
