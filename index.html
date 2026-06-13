@@ -245,8 +245,28 @@ var playedMatches=refM
     return 0;
   });
 
-var lastPlayedMatch=playedMatches.length;
-var previousPlayedMatch=Math.max(0,lastPlayedMatch-1);
+var lastPlayedMatch = playedMatches.length;
+
+var previousPlayedMatch = 0;
+if (playedMatches.length >= 2) {
+  var lastDate = playedMatches[playedMatches.length - 1].date;
+  var prevDate = null;
+
+  for (var i = playedMatches.length - 2; i >= 0; i--) {
+    if (playedMatches[i].date !== lastDate) {
+      prevDate = playedMatches[i].date;
+      break;
+    }
+  }
+
+  if (prevDate) {
+    previousPlayedMatch = playedMatches.filter(function(m){
+      return m.date <= prevDate;
+    }).length;
+  } else {
+    previousPlayedMatch = lastPlayedMatch - 1;
+  }
+}
 
     function cumPts(matches,upto){
   if(!upto)return 0;
