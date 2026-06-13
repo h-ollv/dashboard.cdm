@@ -108,9 +108,23 @@ function parsePlayerSheet(rows){
     });
   }
   for(var i=5;i<rows.length;i++){
-    var rw=rows[i]||[];
-    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0{flush();block=[];curPoule=rw[0];continue;}
-    block.push(rw);
+  var rw=rows[i]||[];
+
+  console.log("RW0 =", rw[0]);
+
+  if(
+    rw[0] &&
+    typeof rw[0]==='string' &&
+    rw[0].indexOf('Poule')===0
+  ){
+    flush();
+    block=[];
+    curPoule=rw[0];
+    continue;
+  }
+
+  block.push(rw);
+}
   }
   flush();
   return{name:name.trim()||null,matches:matches};
