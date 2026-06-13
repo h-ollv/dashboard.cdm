@@ -161,13 +161,14 @@ function toVX(a){
 function computeRisk(matches){
   var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
   matches.forEach(function(m){
-    var ap=getAP(m);if(!ap)return;
-    aSum+=ap.a;aCnt++;
-    if(m.played){actS+=m.correct?1:0;expS+=ap.p;pCnt++;}
+    var audaciousCount=playedM.filter(function(m){
+  return (m.audace||0)>=50;
+}).length;
+
+var audPct=aCnt?(audaciousCount/aCnt)*100:0;
   });
   return{
-    audace:aCnt>0?Math.round(aSum/aCnt):50,
-    adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
+    audace:audPct,    adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
   };
 }
 
