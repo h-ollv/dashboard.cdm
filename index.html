@@ -237,19 +237,6 @@ allPlayedMatches.forEach(function(m,i){
       return 0;
     });
 
-  var sum = 0;
-  for(var i=0;i<Math.min(idx, played.length);i++){
-    sum += played[i].points || 0;
-  }
-  return sum;
-}
-
-  var sum = 0;
-  for(var i=0;i<Math.min(idx, played.length);i++){
-    sum += played[i].points || 0;
-  }
-  return sum;
-}
     var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
 
     var byDate={};
@@ -326,21 +313,30 @@ function cumPtsMatch(matches,n){
       var idxNow = allPlayedMatches.length;
 var idxPrev = Math.max(0, idxNow - 1);
 
-var bN = out.slice().sort(function(a,b){
-  return getPtsAtIndex(b.matches, idxNow) - getPtsAtIndex(a.matches, idxNow);
-});
+function getRank(matches, n){
+  var pts = {};
 
-var bP = out.slice().sort(function(a,b){
-  return getPtsAtIndex(b.matches, idxPrev) - getPtsAtIndex(a.matches, idxPrev);
-});
+  players.forEach(function(p){
+    pts[p.name] = (p.matches || []).reduce(function(s,m){
+      return s + (m.played && m.date && m.date <= (allPlayedMatches[n-1]?.date || '') ? m.points : 0);
+    },0);
+  });
 
-var rN = {}, rP = {};
+  return players.slice().sort(function(a,b){
+    return pts[b.name] - pts[a.name];
+  });
+}
 
-bN.forEach(function(p,i){ rN[p.name]=i+1; });
-bP.forEach(function(p,i){ rP[p.name]=i+1; });
+// classement actuel
+var rN = {};
+getRank(players, idxNow).forEach(function(p,i){ rN[p.name]=i+1; });
+
+// classement N-1
+var rP = {};
+getRank(players, idxPrev).forEach(function(p,i){ rP[p.name]=i+1; });
 
 out.forEach(function(p){
-  p.delta = (rP[p.name]||0) - (rN[p.name]||0);
+  p.delta = (rP[p.name] || 0) - (rN[p.name] || 0);
 });
       var total_points=e.points||0;
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
@@ -596,7 +592,7 @@ Object.keys(pronoCounts).forEach(function(k){
       var pts={};
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
       var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
-      return{label:"J"+(idx+1)+(iP?" (en cours)":""),date:d.slice(5),leader:sr[0]?sr[0].name:'—',pts:sr[0]?pts[sr[0].name]:0};
+      return{label:"J"+(idx+1)+(iP?" (en cours)":""),date: (d || '').slice(5),leader:sr[0]?sr[0].name:'—',pts:sr[0]?pts[sr[0].name]:0};
     });
 
     var leaderStreak=0;
