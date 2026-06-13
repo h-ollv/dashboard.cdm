@@ -228,13 +228,7 @@ refM.forEach(function(m){
 });
 
 var allDates=Object.keys(byDate).sort();
-function cumPtsUntil(matches, date){
-  if(!date) return 0;
 
-  return matches.reduce(function(s,m){
-    return s + (m.date && m.date <= date ? (m.points || 0) : 0);
-  },0);
-}
 var playedDates=allDates.filter(function(d){
   return byDate[d].some(function(m){return m.played;});
 });
@@ -242,9 +236,17 @@ var playedDates=allDates.filter(function(d){
 var completedDates=allDates.filter(function(d){
   return byDate[d].length>0&&byDate[d].every(function(m){return m.played;});
 });
-var lastDate = completedDates[completedDates.length - 1];
-var prevDate = completedDates[completedDates.length - 2] || null;
 
+/* progression classement = match précédent */
+var playedMatches=refM
+  .filter(function(m){return m.played&&m.date;})
+  .sort(function(a,b){
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    return 0;
+  });
+
+var lastPlayedMatch=playedMatches.length;
+var previousPlayedMatch=Math.max(0,lastPlayedMatch-1);
 
     function cumPts(matches,upto){
   if(!upto)return 0;
@@ -308,6 +310,8 @@ playedM.forEach(function(m){
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot, maxCold:maxCold,
         matches:matches,
+        _ptsNow:cumPtsMatch(matches,lastPlayedMatch),
+_ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
       };
     });
 
