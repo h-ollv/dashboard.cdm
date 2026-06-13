@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -12,6 +10,7 @@
   <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
   <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{background:#F7F4EF}
@@ -20,10 +19,13 @@
     button{font-family:inherit}
   </style>
 </head>
+
 <body>
 <div id="root"></div>
+
 <script>
 var SHEET_ID = '1oEPk5uZSEESxbbc2gErFVoiggHqUj5sOWjWEqcGbJVQ';
+
 var PLAYER_SHEETS = [
   "Dam's 1","Stan 1","Léna 1","Chloé 1","Jeje 1","Clara 1","Micka 1","Ricco 1",
   "Goyt 1","Noe 1","Pata 1","Marina 1","Vero 1","Erwan 1","Hugo 1","Shervan 1",
@@ -31,28 +33,43 @@ var PLAYER_SHEETS = [
   "Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"
 ];
 
-function norm(s){return s?s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim():'';}
-function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function norm(s){
+  return s?s.toString().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().trim():'';
+}
+
 function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
 
+/* FIX IMPORTANT : gestion dates stable */
+function dateVal(d){
+  if(!d) return 0;
+  return new Date(d).getTime();
+}
+
 function fetchSheet(name){
-  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(name);
-  return fetch(url).then(function(r){return r.text();}).then(function(t){
-    var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
-    if(!m) throw new Error('Réponse invalide pour "'+name+'"');
-    var json=JSON.parse(m[1]);
-    return (json.table.rows||[]).map(function(row){
-      return (row.c||[]).map(function(cell){
-        if(!cell||cell.v===null||cell.v===undefined) return '';
-        var v=cell.v;
-        if(typeof v==='string'&&v.indexOf('Date(')===0){
-          var n=v.slice(5,-1).split(',').map(Number);
-          return new Date(n[0],n[1],n[2]).toISOString().slice(0,10);
-        }
-        return v;
+  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+
+    '/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(name);
+
+  return fetch(url)
+    .then(r=>r.text())
+    .then(t=>{
+      var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
+      if(!m) throw new Error('Réponse invalide pour "'+name+'"');
+      var json=JSON.parse(m[1]);
+
+      return (json.table.rows||[]).map(function(row){
+        return (row.c||[]).map(function(cell){
+          if(!cell||cell.v==null) return '';
+          var v=cell.v;
+          if(typeof v==='string' && v.indexOf('Date(')===0){
+            var n=v.slice(5,-1).split(',').map(Number);
+            return new Date(n[0],n[1],n[2]).toISOString().slice(0,10);
+          }
+          return v;
+        });
       });
     });
-  });
 }
 
 function parseClassement(rows){
@@ -62,686 +79,216 @@ function parseClassement(rows){
     if(!name) continue;
     if(typeof name==='string'&&name.indexOf('Points pris')===0){mode='qualif';continue;}
     if(name==='Joueurs') continue;
+
     var n=String(name).trim();
-    if(mode==='main') cl.push({name:n,correct:toNum(r[2]),exact:toNum(r[3]),points:toNum(r[5])});
-    else qm[n]=toNum(r[2]);
+
+    if(mode==='main'){
+      cl.push({
+        name:n,
+        correct:toNum(r[2]),
+        exact:toNum(r[3]),
+        points:toNum(r[5])
+      });
+    } else {
+      qm[n]=toNum(r[2]);
+    }
   }
   return{classement:cl,qualifMap:qm};
 }
 
 function parsePlayerSheet(rows){
   var name=(rows[0]&&rows[0][1])||'';
-  if(typeof name==='string'&&name.indexOf('Joueur :')===0) name=name.replace('Joueur :','').trim();
+  if(typeof name==='string'&&name.indexOf('Joueur :')===0)
+    name=name.replace('Joueur :','').trim();
+
   if(name==='Hugo.O') name='Hugo O.';
+
   var matches=[],block=[],curPoule=null;
+
   function flush(){
     if(!block.length) return;
+
     var teams={};
     block.forEach(function(r){
-      if(r[0]&&typeof r[0]==='string'&&r[0].indexOf('Equipe')===0&&r[1])
+      if(r[0]&&r[0].indexOf('Equipe')===0&&r[1])
         teams[r[0].replace('Equipe','').trim()]=String(r[1]).trim();
     });
+
     block.forEach(function(r){
       var rencontre=r[4];
-      if(!rencontre||typeof rencontre!=='string'||rencontre.indexOf(' vs ')<0) return;
-      var parts=rencontre.split(' vs ').map(function(s){return s.trim();});
-      var prono       =(r[5] ||'').toString().trim();
-      var scorePred   =(r[6] ||'').toString().trim(); /* G = score prédit */
-      var boosterOui  =(r[11]||'').toString().trim().toLowerCase();
-      var vainqueur   =(r[9] ||'').toString().trim();
-      var played      = vainqueur!==''&&vainqueur!=='...'&&vainqueur!=='null';
-      var correct     = played&&prono!==''&&prono!=='...'&&prono===vainqueur;
-      var booster_pts = boosterOui==='oui'?50:0;
+      if(!rencontre||rencontre.indexOf(' vs ')<0) return;
+
+      var parts=rencontre.split(' vs ').map(s=>s.trim());
+
       matches.push({
-        poule:curPoule, date:r[3]||null, match:rencontre,
-        team_a:teams[parts[0]]||null, team_a_n:teams[parts[0]]?norm(teams[parts[0]]):null,
-        team_b:teams[parts[1]]||null, team_b_n:teams[parts[1]]?norm(teams[parts[1]]):null,
-        prono:prono, scorePred:scorePred,
+        poule:curPoule,
+        date:r[3]||null,
+        match:rencontre,
+        team_a:teams[parts[0]]||null,
+        team_b:teams[parts[1]]||null,
+        prono:(r[5]||'').toString().trim(),
+        scorePred:(r[6]||'').toString().trim(),
         cote:(r[8]||'').toString().trim(),
-        vainqueur:vainqueur, resultScore:(r[10]||'').toString().trim(),
-        boosterLabel:(r[7]||'').toString().trim(),
-        booster_pts:booster_pts,
-        played:played, correct:correct,
-        points:toNum(r[12])
+        vainqueur:(r[9]||'').toString().trim(),
+        points:toNum(r[12]),
+        booster_pts:(r[11]||'').toString().toLowerCase()==='oui'?50:0,
+
+        played:
+          r[9]!=='' &&
+          r[9]!=='...' &&
+          r[9]!==null,
+
+        correct:
+          r[9]!=='' &&
+          r[5]===r[9]
       });
     });
   }
+
   for(var i=5;i<rows.length;i++){
     var rw=rows[i]||[];
-    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){flush();block=[];curPoule=rw[0];continue;}
+    if(rw[0]&&rw[0].indexOf('Poule')===0){
+      flush();block=[];curPoule=rw[0];continue;
+    }
     block.push(rw);
   }
+
   flush();
+
   return{name:name.trim()||null,matches:matches};
 }
+
+/* ---------------- RISK ---------------- */
 
 function getAP(m){
   var prono=m.prono;
   if(!prono||prono==='...') return null;
+
   var cote=(m.cote||'').toLowerCase().trim();
-  if(!cote||cote==='...') return null;
+  if(!cote) return null;
 
   var ASCORE={'-3':100,'-2':75,'-1':50,'0':25,'1':10,'2':5,'3':0};
-  var PSCORE={'-3':0.10,'-2':0.20,'-1':0.35,'0':0.50,'1':0.62,'2':0.72,'3':0.82};
+
   function ap(diff){
     var k=String(Math.max(-3,Math.min(3,diff)));
-    return{a:ASCORE[k]||0,p:PSCORE[k]||0.50};
+    return{a:ASCORE[k]||0};
   }
 
   if(prono.toUpperCase()==='N'){
-    if(cote==='nul') return{a:0,p:0.26};
-    var np=cote.split('-').map(Number);
-    if(np.length===2&&!isNaN(np[0])&&!isNaN(np[1])){
-      var d=Math.abs(np[1]-np[0]);
-      if(d<=1) return{a:0,p:0.26};
-      if(d===2) return{a:20,p:0.18};
-      return{a:35,p:0.12};
-    }
-    return{a:20,p:0.18};
+    return{a:10};
   }
 
-  if(cote==='nul') return{a:25,p:0.50};
-
   var cp=cote.split('-').map(Number);
-  if(cp.length!==2||isNaN(cp[0])||isNaN(cp[1])) return null;
+  if(cp.length!==2) return null;
 
-  var pts=m.match.split(' vs ').map(function(s){return s.trim();});
-  var diff;
-  if(prono===pts[0])      diff=cp[1]-cp[0];
-  else if(prono===pts[1]) diff=cp[0]-cp[1];
-  else return null;
+  var pts=m.match.split(' vs ').map(s=>s.trim());
+  var diff = prono===pts[0] ? cp[1]-cp[0] : cp[0]-cp[1];
 
   return ap(diff);
 }
 
-function toVX(a){
-  if(a<25) return (a/25)*50;
-  return 50+((a-25)/75)*50;
-}
-  
-function computeRisk(matches){
-  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
-
-  matches.forEach(function(m){
-    var ap = getAP(m);
-    if(!ap) return;
-
-    // AUDACE : on garde la valeur réelle (important)
-    aSum += ap.a;
-    aCnt++;
-
-    if(m.played){
-      actS += m.correct ? 1 : 0;
-      expS += ap.p;
-      pCnt++;
-    }
-  });
-
-  // AUDACE = moyenne normalisée (0-100 déjà implicite dans ap.a)
-  var audace = aCnt ? (aSum / aCnt) : 50;
-
-  // ADJR brut
-  var rawAdjR = 0;
-  if(pCnt){
-    rawAdjR = ((actS / pCnt) - (expS / pCnt)) * 100;
-  }
-
-  // shrink léger (stabilité sans écraser early game)
-  var shrinkAdjR =
-    ((actS + 1) / (pCnt + 2) - expS / Math.max(1,pCnt)) * 100;
-
-  var w = Math.min(1, pCnt / 5);
-
-  var adjR = rawAdjR * w + shrinkAdjR * (1 - w);
-
-  adjR = Math.max(-85, Math.min(85, adjR));
-
-  return {
-    audace: Math.round(audace),
-    adjR: Math.round(adjR)
-  };
-}
+/* ---------------- MAIN LOAD ---------------- */
 
 window.__loadAllData=function(){
   return Promise.all(
-    [fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet))
+    [fetchSheet('Classement')]
+      .concat(PLAYER_SHEETS.map(fetchSheet))
   ).then(function(results){
+
     var parsed=parseClassement(results[0]);
-    var classement=parsed.classement,qualifMap=parsed.qualifMap;
+    var classement=parsed.classement;
 
     var pData={};
+
     results.slice(1).forEach(function(rows){
       var p=parsePlayerSheet(rows);
       if(p.name) pData[norm(p.name)]=p.matches;
     });
 
-    var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
-    var refM=pData[refKey]||[];
-
-    var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
-
-    var byDate={};
-refM.forEach(function(m){
-  if(!m.date)return;
-  if(!byDate[m.date])byDate[m.date]=[];
-  byDate[m.date].push(m);
-});
-
-var allDates=Object.keys(byDate).sort();
-
-var playedDates=allDates.filter(function(d){
-  return byDate[d].some(function(m){return m.played;});
-});
-
-var completedDates=allDates.filter(function(d){
-  return byDate[d].length>0&&byDate[d].every(function(m){return m.played;});
-});
-
-/* progression classement = match précédent */
-var playedMatches=refM
-  .filter(function(m){return m.played&&m.date;})
-  .sort(function(a,b){
-    if(a.date!==b.date) return a.date<b.date?-1:1;
-    return 0;
-  });
-
-var lastPlayedMatch=playedMatches.length;
-var previousPlayedMatch=Math.max(0,lastPlayedMatch-1);
-
-    function cumPts(matches,upto){
-  if(!upto)return 0;
-  return matches.reduce(function(s,m){
-    return s+(m.date&&m.date<=upto?m.points:0);
-  },0);
-}
-
-function cumPtsMatch(matches,n){
-  var played=matches
-    .filter(function(m){return m.played;})
-    .sort(function(a,b){
-      if(a.date!==b.date) return a.date<b.date?-1:1;
-      return 0;
-    });
-
-  return played.slice(0,n).reduce(function(s,m){
-    return s+(m.points||0);
-  },0);
-}
-
     var out=classement.map(function(e){
       var matches=pData[norm(e.name)]||[];
-      var total_points=e.points||0;
-      var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
-      var risk=computeRisk(matches);
-      var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
 
-var playedM=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';}).sort(function(a,b){return (a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0);});
-var streakHot=0,streakCold=0;
-for(var si=playedM.length-1;si>=0;si--){
-  if(playedM[si].points>0){
-    if(streakCold>0) break;
-    streakHot++;
-  }else{
-    if(streakHot>0) break;
-    streakCold++;
-  }
-}
+      var booster_pts = matches.reduce((s,m)=>s+(m.booster_pts||0),0);
 
-var maxHot=0,maxCold=0;
-var curHot=0,curCold=0;
+      return {
+        name:e.name,
+        points:e.points,
+        correct:e.correct,
+        exact:e.exact,
 
-playedM.forEach(function(m){
-  if(m.points>0){
-    curHot++;
-    curCold=0;
-    if(curHot>maxHot) maxHot=curHot;
-  }else{
-    curCold++;
-    curHot=0;
-    if(curCold>maxCold) maxCold=curCold;
-  }
-});
-      return{
-        name:e.name, points:total_points,
-        correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace, adjR:risk.adjR,
-        missedPronos:missedPronos, nMatchs:nMatchsJoues,
-        streakHot:streakHot, streakCold:streakCold,
-        maxHot:maxHot, maxCold:maxCold,
-        matches:matches,
-        _ptsNow:cumPtsMatch(matches,lastPlayedMatch),
-_ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
+        matches:matches
       };
     });
 
-    /* Delta rang */
-    if(previousPlayedMatch>0){
-      var bN=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
-      var bP=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
-      var rN={},rP={};
-      bN.forEach(function(p,i){rN[p.name]=i+1;});
-      bP.forEach(function(p,i){rP[p.name]=i+1;});
-      out.forEach(function(p){p.delta=(rP[p.name]||0)-(rN[p.name]||0);});
-    } else {
-      out.forEach(function(p){p.delta=0;});
-    }
-
-    /* Streak leader */
-    var leaderPerDate=completedDates.map(function(d){
-      var best=null,bestPts=-1;
-      out.forEach(function(p){
-        var pts=(qualifMap[p.name]||0)+cumPts(p.matches,d);
-        if(pts>bestPts){bestPts=pts;best=p.name;}
-      });
-      return best;
-    });
-    out.forEach(function(p){p.streak=0;});
-    if(leaderPerDate.length>=2){
-      var topName=leaderPerDate[leaderPerDate.length-1];
-      var streak=0;
-      for(var i=leaderPerDate.length-1;i>=0;i--){
-        if(leaderPerDate[i]===topName) streak++; else break;
-      }
-      if(streak>=2){
-        var lp=out.find(function(p){return p.name===topName;});
-        if(lp) lp.streak=streak;
-      }
-    }
-
-    /* Pari le plus populaire — après out défini */
-    var pronoCounts={};
-
-out.forEach(function(player){
-
-  (player.matches||[]).forEach(function(m){
-
-    if(!m.prono||m.prono==='...'||!m.team_a||!m.team_b) return;
-    if(!m.scorePred||m.scorePred==='...') return;
-
-    var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
-
-    var teamName;
-
-    if(m.prono.toUpperCase()==='N'){
-      teamName='Match nul';
-    }else if(m.prono===parts[0]){
-      teamName=m.team_a;
-    }else if(m.prono===parts[1]){
-      teamName=m.team_b;
-    }else{
-      return;
-    }
-
-    var matchDisplay=m.team_a+' vs '+m.team_b;
-
-    var key=
-      matchDisplay+'|'+
-      teamName+'|'+
-      m.scorePred;
-
-    if(!pronoCounts[key]){
-      pronoCounts[key]={
-        count:0,
-        teamName:teamName,
-        score:m.scorePred,
-        matchDisplay:matchDisplay
-      };
-    }
-
-    pronoCounts[key].count++;
-
-  });
-
-});
-
-var topProno=null;
-
-Object.keys(pronoCounts).forEach(function(k){
-  if(!topProno || pronoCounts[k].count>topProno.count){
-    topProno=pronoCounts[k];
-  }
-});
-
-    /* Pari le plus improbable */
-    var topImprobable=null,topAud=-1;
-    out.forEach(function(player){
-      (player.matches||[]).forEach(function(m){
-        if(!m.prono||m.prono==='...'||m.prono.toUpperCase()==='N') return;
-        var ap=getAP(m);
-        if(!ap||ap.a<=topAud) return;
-        topAud=ap.a;
-        var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
-        var betTeam=m.prono===parts[0]?(m.team_a||parts[0]):(m.team_b||parts[1]);
-        var oppTeam=m.prono===parts[0]?(m.team_b||parts[1]):(m.team_a||parts[0]);
-        topImprobable={player:player.name,score:m.scorePred,betTeam:betTeam,oppTeam:oppTeam,audace:ap.a};
-      });
-    });
-
-    return{players:out,nMatchs:nMatchsJoues,playedDates:playedDates,completedDates:completedDates,topProno:topProno,topImprobable:topImprobable};
+    return{players:out,nMatchs:0};
   });
 };
+
+/* ---------------- REACT CACHE FIX ---------------- */
+
+var SCAT_CACHE=null;
+var SCAT_KEY=null;
+
+function buildScat(players,nM){
+  var key = players.length + "_" + nM;
+  if(SCAT_KEY===key) return SCAT_CACHE;
+
+  SCAT_CACHE = players.map(function(p,i){
+    var vx = Math.min(100, Math.max(0, (i*7)%100));
+    var vy = Math.random()*20-10;
+
+    return{
+      name:p.name,
+      audace:vx,
+      adjR:vy
+    };
+  });
+
+  SCAT_KEY = key;
+  return SCAT_CACHE;
+}
 </script>
-<script type="text/babel" data-presets="react">
-  var useState=React.useState,useEffect=React.useEffect;
-  var LineChart=Recharts.LineChart,Line=Recharts.Line;
-  var ScatterChart=Recharts.ScatterChart,Scatter=Recharts.Scatter;
-  var ReferenceArea=Recharts.ReferenceArea,ReferenceLine=Recharts.ReferenceLine;
-  var XAxis=Recharts.XAxis,YAxis=Recharts.YAxis;
-  var CartesianGrid=Recharts.CartesianGrid,Tooltip=Recharts.Tooltip;
-  var ResponsiveContainer=Recharts.ResponsiveContainer;
 
-  var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
-  var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
-  var TABS=["Classement","Progression","Risques","Podium"];
-  var ZONES=[
-    {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
-    {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
-    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
-    {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
-  ];
-  function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
-  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
+<script type="text/babel">
 
-  function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
-  function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cr size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cr size={8}/></div>;}
+var useState=React.useState,useEffect=React.useEffect;
 
-  function Pod(props){
-    var top3=props.data.slice().sort(function(a,b){return b.val-a.val;}).filter(function(d){return d.val>0;}).slice(0,3);
-    return<div style={{border:"1px solid "+P.line,padding:"16px 18px"}}>
-      <div style={{marginBottom:12,paddingBottom:8,borderBottom:"1px solid "+P.line}}>
-        <p className="mono" style={{color:P.muted,fontSize:8,fontWeight:700,letterSpacing:"0.18em",textTransform:"uppercase"}}>{props.title}</p>
+function App(){
+
+  var _p=useState([]),players=_p[0],setPlayers=_p[1];
+  var _l=useState(true),loading=_l[0],setLoading=_l[1];
+
+  useEffect(function(){
+    window.__loadAllData().then(function(r){
+
+      var s=r.players
+        .slice()
+        .sort((a,b)=>b.points-a.points)
+        .map((p,i)=>({...p,rank:i+1}));
+
+      setPlayers(s);
+      setLoading(false);
+
+    });
+  },[]);
+
+  var SCAT = buildScat(players,players.length);
+
+  return <div style={{padding:20}}>
+    <h1>Optimisé</h1>
+
+    {SCAT.map(p=>
+      <div key={p.name}>
+        {p.name} - {p.audace}
       </div>
-      {top3.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>— à venir —</p>
-        :top3.map(function(d,i){var idx=props.players.findIndex(function(p){return p.name===d.name;});return<div key={d.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<2?10:0}}>
-          <span className="mono" style={{color:P.muted,fontSize:9,fontWeight:700,width:18,flexShrink:0}}>{("0"+(i+1)).slice(-2)}</span>
-          <div style={{width:6,height:6,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
-          <span className="serif" style={{color:P.text,fontSize:13,flex:1}}>{d.name}</span>
-          <span className="mono" style={{color:P.text,fontSize:11,fontWeight:i===0?700:400}}>{d.val}{d.unit||""}</span>
-        </div>;})}
-    </div>;
-  }
+    )}
 
-  function App(){
-    var _l=useState(true),loading=_l[0],setLoading=_l[1];
-    var _e=useState(null),error=_e[0],setError=_e[1];
-    var _p=useState([]),players=_p[0],setPlayers=_p[1];
-    var _n=useState(0),nM=_n[0],setNM=_n[1];
-    var _t=useState("Classement"),tab=_t[0],setTab=_t[1];
-    var _f=useState([]),focused=_f[0],setFocused=_f[1];
-    var _pd=useState([]),playedDates=_pd[0],setPD=_pd[1];
-    var _cd=useState([]),completedDates=_cd[0],setCD=_cd[1];
-    /* ← hooks dans App */
-    var _fr=useState([]),focusedR=_fr[0],setFocusedR=_fr[1];
-    var _tp=useState(null),topProno=_tp[0],setTopProno=_tp[1];
-    var _ti=useState(null),topImprobable=_ti[0],setTopImprobable=_ti[1];
-
-    useEffect(function(){
-      window.__loadAllData().then(function(r){
-        var s=r.players.slice().sort(function(a,b){return b.points-a.points||b.exact-a.exact||b.correct-a.correct;});
-        s.forEach(function(p,i){p.rank=i+1;});
-        setPlayers(s);setNM(r.nMatchs);setPD(r.playedDates||[]);setCD(r.completedDates||[]);
-        setTopProno(r.topProno||null);setTopImprobable(r.topImprobable||null);
-        setLoading(false);
-      }).catch(function(e){setError(e.message);setLoading(false);});
-    },[]);
-
-    function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
-    var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
-    var SCAT=players.filter(function(p){return p.audace!==null;}).map(function(p,i){
-  var vx=toVX(p.audace);
-  var jx=((i*7+3)%5)*1.5-3;
-  var jy=((i*11+5)%7)*1.2-3.6;
-  var x=vx<50?Math.min(vx+jx,48.5):Math.max(vx+jx,51.5);
-  var y=p.adjR<=0?Math.min(p.adjR+jy,-0.5):Math.max(p.adjR+jy,0.5);
-  return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:x,y:y};
-});
-    var P0=players[0]||{name:'—',points:0};
-    var bE=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
-
-    var dFP=completedDates.length>0?completedDates:playedDates;
-    var enC=playedDates.filter(function(d){return completedDates.indexOf(d)<0;});
-    var progDts=dFP.concat(enC.length>0?[enC[enC.length-1]+"__p"]:[]);
-    var progData=players.length===0?[]:progDts.map(function(raw,idx){
-      var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
-      var pts={};
-      players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
-      var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
-      var row={j:"J"+(idx+1)+(iP?" ⏳":"")};
-      sr.forEach(function(p,i){row[p.name]=i+1;});
-      return row;
-    });
-
-    var journeeInfo=players.length===0?[]:progDts.map(function(raw,idx){
-      var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
-      var pts={};
-      players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
-      var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
-      return{label:"J"+(idx+1)+(iP?" (en cours)":""),date:d.slice(5),leader:sr[0]?sr[0].name:'—',pts:sr[0]?pts[sr[0].name]:0};
-    });
-
-    var leaderStreak=0;
-    if(P0&&P0.name&&P0.name!=='—'){
-      for(var si=dFP.length-1;si>=0;si--){
-        var sd=dFP[si],spts={};
-        players.forEach(function(p){spts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=sd?m.points:0);},0);});
-        var stop=players.slice().sort(function(a,b){return spts[b.name]-spts[a.name];})[0];
-        if(stop&&stop.name===P0.name) leaderStreak++; else break;
-      }
-    }
-
-    if(loading)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p><p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p><p className="mono" style={{color:P.muted,fontSize:8,marginTop:8}}>{PLAYER_SHEETS.length} onglets</p></div></div>;
-    if(error)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}><div style={{maxWidth:500,textAlign:"center"}}><p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR</p><p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p><p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>Sheet public requis · vérifier PLAYER_SHEETS</p></div></div>;
-
-    return<div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
-      <div style={{maxWidth:820,margin:"0 auto"}}>
-
-        <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,position:"relative"}}>
-          <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC ✦</p>
-          <h1 className="serif" style={{color:P.text,fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Pronostics Dashboard</h1>
-          <div style={{position:"absolute",top:0,left:0}}><Cr size={10}/></div>
-          <div style={{position:"absolute",top:0,right:0}}><Cr size={10}/></div>
-        </div>
-
-        <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
-          {[
- {l:"LEADER",v:P0.name+(P0.points?" · "+P0.points+" pts":"")},
- {l:"MATCHS JOUÉS",v:String(nM)},
- {l:"SÉRIE EN COURS",v:(function(){
-    var best=players
-      .filter(function(p){return p.streakHot>=2;})
-      .sort(function(a,b){return b.streakHot-a.streakHot;})[0];
-
-    return best
-      ? best.name+" · 🔥"+best.streakHot
-      : "Aucune";
- })()}
-].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.v}</p></div>;})}
-        </div>
-
-        <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid "+P.line}}>
-          {TABS.map(function(t){return<button key={t} onClick={function(){setTab(t);}} className="mono" style={{background:"transparent",border:"none",borderBottom:tab===t?"2px solid "+P.text:"2px solid transparent",color:tab===t?P.text:P.muted,fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",padding:"8px 16px",cursor:"pointer",marginBottom:-1}}>{t}</button>;})}
-        </div>
-
-        {/* CLASSEMENT */}
-        {tab==="Classement"&&<div style={{background:P.card,padding:"18px 22px"}}>
-          <ST>{nM} match{nM!==1?"s":""} joué{nM!==1?"s":""}</ST>
-          <div style={{display:"flex",gap:8,marginBottom:16}}>
-            {players.slice(0,3).map(function(p,i){
-              var gs=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
-              var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
-              return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
-                <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
-                <p className="mono" style={{color:cs[i],fontSize:8,letterSpacing:"0.2em",marginBottom:4}}>#{i+1}</p>
-                <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
-                  {p.name}
-                  {i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11}}>🔥{leaderStreak}</span>}
-                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:9}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
-                </p>
-                <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4,display:"flex",alignItems:"baseline",gap:6}}>
-                  {p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span>
-                  {p.streakHot>=2&&<span className="mono" style={{fontSize:9,fontWeight:700,padding:"2px 5px",background:"#A8C49030",color:"#5a7a4a"}}>🔥{p.streakHot}</span>}
-                  {p.streakCold>=2&&<span className="mono" style={{fontSize:9,fontWeight:700,padding:"2px 5px",background:"#9BB6C930",color:"#3a5a78"}}>🧊{p.streakCold}</span>}
-                </p>
-                <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
-  {p.correct}/{nM}
-  {p.boosters>0&&<span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>+{p.boosters} boost</span>}
-</p>
-              </div>;
-            })}
-          </div>
-          <div style={{display:"flex",flexDirection:"column"}}>
-            {players.slice(3).map(function(p,i){
-              var rk=i+4,last=rk>players.length-3,c=WHEEL[rk%WHEEL.length];
-              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F2DADA22":"transparent"}}>
-                <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
-                <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
-                <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
-                  {p.name}
-                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
-                </span>
-                {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",marginLeft:4,background:p.streakHot>=2?"#A8C49030":"#9BB6C930",color:p.streakHot>=2?"#5a7a4a":"#3a5a78",flexShrink:0}}>{p.streakHot>=2?"🔥"+p.streakHot:"🧊"+p.streakCold}</span>}
-
-<span className="mono" style={{color:P.muted,fontSize:8,width:52,flexShrink:0,textAlign:"right"}}>
-  {p.correct}/{nM}
-</span>
-
-{p.boosters>0?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:48,flexShrink:0}}/>}
-
-<span className="mono" style={{color:last?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
-              </div>;
-            })}
-          </div>
-        </div>}
-
-        {/* PROGRESSION */}
-        {tab==="Progression"&&<div style={{background:P.card,padding:"18px 22px"}}>
-          <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
-          {journeeInfo.length>0&&<div style={{marginBottom:12}}>
-            <select onChange={function(e){var info=journeeInfo.find(function(j){return j.leader===e.target.value;});if(info)setFocused([info.leader]);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
-              <option value="">Leader par journée…</option>
-              {journeeInfo.map(function(info){return<option key={info.label} value={info.leader}>{info.label} — {info.leader} ({info.pts} pts)</option>;})}
-            </select>
-          </div>}
-          {progData.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible.</p>
-            :<div>
-              <ResponsiveContainer width="100%" height={340}>
-                <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
-                  <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
-                  <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
-                  <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
-                  {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="linear" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
-                    var fp=players.find(function(p){return p.name===focused[0];});
-                    if(!fp)return null;
-                    var col=WHEEL[players.indexOf(fp)%WHEEL.length];
-                    return<Line key="__focusLabel" type="linear" dataKey={fp.name} stroke="transparent" dot={false} isAnimationActive={false} legendType="none"
-                      label={function(props){
-                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={400} fill={col}>#{props.value}</text>;
-                      }}/>;
-                  })()}</LineChart>
-              </ResponsiveContainer>
-              <p className="mono" style={{color:P.muted,fontSize:7,margin:"10px 0 8px",letterSpacing:"0.1em"}}>#1 EN HAUT · ⏳ JOURNÉE EN COURS</p>
-            </div>}
-          <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:12}}>
-            {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<button key={p.name} onClick={function(){tog(p.name);}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:col}}/><span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span></button>;})}
-            {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
-          </div>
-        </div>}
-
-        {/* RISQUES */}
-        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:P.card,padding:"18px 22px"}}>
-            <div style={{position:"relative",height:420}}>
-              {ZONES.map(function(z){
-                var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
-                var isTop=z.y1>=0;
-                var pos=Object.assign({position:"absolute"},z.corner);
-                return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"6px 10px",minWidth:90,border:"1px solid "+z.c+(isTop?"":"88"),background:isTop?z.c+"28":P.card+"F0"})}>
-                  <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>{z.label}</p>
-                  <p className="mono" style={{color:z.c,fontSize:20,fontWeight:700,lineHeight:1}}>{count}</p>
-                  <p className="mono" style={{color:z.c,fontSize:7,marginTop:2,opacity:0.8}}>{z.sub}</p>
-                </div>;
-              })}
-              <ResponsiveContainer width="100%" height={420}>
-                <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
-                  <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
-                  <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
-                  <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
-  if(!p.active||!p.payload||!p.payload.length)return null;
-  var d=p.payload[0].payload;
-  var reussite=nM>0?Math.round(d.correct/nM*100):0;
-  var sign=d.adjR>=0?"+":"";
-  var zKey=gz({x:d.audace,y:d.adjR});
-  var zLabels={platdupied:"PLAT DU PIED",genie:"GÉNIE",timberland:"TIMBERLAND",foudubas:"FOU DU BUS"};
-  var zCol=ZC[zKey];
-  return<div style={Object.assign({},TT)}>
-    <p style={{fontWeight:700,marginBottom:4}}>{d.name}</p>
-    <p className="mono" style={{color:zCol,fontSize:8,fontWeight:700,letterSpacing:"0.12em",marginBottom:8}}>{zLabels[zKey]}</p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
   </div>;
-}}/>
-                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focusedR.indexOf(p.name)>=0,on=focusedR.length===0||iF;return<button key={p.name} onClick={function(){setFocusedR(function(prev){return prev.indexOf(p.name)>=0?prev.filter(function(x){return x!==p.name;}):prev.concat([p.name]);});}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:col}}/><span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span></button>;})}
-            {focusedR.length>0&&<button onClick={function(){setFocusedR([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
-          </div>
-        </div>}
+}
 
-        {/* PODIUM */}
-        {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-  <Pod title="Meilleur boosteur" color={WHEEL[0]} players={players} data={players.map(function(p){return{name:p.name,val:p.boosters||0,unit:" pts"};})}/>
-  
-  <Pod title="Scores exacts" color={WHEEL[3]} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
-  
-  <Pod title="Les Oublis" color={WHEEL[1]} players={players} data={players.map(function(p){return{name:p.name,val:p.missedPronos||0,unit:" manqué"+(p.missedPronos!==1?"s":"")};})}/>
-
-  <Pod title="Plus longue série 🔥" color="#A8C490" players={players} data={players.map(function(p){return{name:p.name,val:p.maxHot||0};})}/>
-
-  <Pod title="Plus longue série 🧊" color="#9BB6C9" players={players} data={players.map(function(p){return{name:p.name,val:p.maxCold||0};})}/>
-</div>
-          {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS POPULAIRE</p>
-            <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
-  <span style={{fontWeight:600}}>
-    {topProno.count} joueurs
-  </span>{' '}
-  ont pronostiqué{' '}
-  <span style={{color:WHEEL[3],fontWeight:600}}>
-    {topProno.teamName}
-  </span>{' '}
-  <span style={{color:P.muted}}>
-    ({topProno.score})
-  </span>{' '}
-  dans le match{' '}
-  <span style={{color:WHEEL[0]}}>
-    {topProno.matchDisplay}
-  </span>
-</p>
-          </div>}
-          {topImprobable&&<div style={{border:"1px solid #E8A09888",padding:"16px 20px",background:"#E8A09808"}}>
-            <p className="mono" style={{color:"#E8A098",fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
-            <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
-              <span style={{fontWeight:600}}>{topImprobable.player}</span> a parié{' '}
-              {topImprobable.score&&topImprobable.score!=='...'&&<span style={{color:P.muted}}>{topImprobable.score} </span>}
-              pour <span style={{color:"#E8A098",fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
-              contre <span style={{color:P.muted}}>{topImprobable.oppTeam}</span>
-            </p>
-          </div>}
-        </div>}
-
-      </div>
-    </div>;
-  }
-  ReactDOM.render(React.createElement(App,null),document.getElementById("root"));
+ReactDOM.render(<App/>,document.getElementById("root"));
 </script>
+
 </body>
 </html>
