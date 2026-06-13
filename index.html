@@ -161,21 +161,14 @@ function toVX(a){
 function computeRisk(matches){
   var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
 
-  var audaceScore = 0;
-
   matches.forEach(function(m){
     var ap = getAP(m);
     if(!ap) return;
 
-    // audace (progressif)
-    if(ap.a <= 30) audaceScore += 0;
-    else if(ap.a >= 70) audaceScore += 1;
-    else audaceScore += 0.5;
-
+    // AUDACE : on garde la valeur réelle (important)
     aSum += ap.a;
     aCnt++;
 
-    // performance
     if(m.played){
       actS += m.correct ? 1 : 0;
       expS += ap.p;
@@ -183,13 +176,16 @@ function computeRisk(matches){
     }
   });
 
-  var audace = aCnt > 0 ? Math.round((audaceScore / aCnt) * 100) : 50;
+  // AUDACE = moyenne normalisée (0-100 déjà implicite dans ap.a)
+  var audace = aCnt ? (aSum / aCnt) : 50;
 
+  // ADJR brut
   var rawAdjR = 0;
-  if(pCnt > 0){
+  if(pCnt){
     rawAdjR = ((actS / pCnt) - (expS / pCnt)) * 100;
   }
 
+  // shrink léger (stabilité sans écraser early game)
   var shrinkAdjR =
     ((actS + 1) / (pCnt + 2) - expS / Math.max(1,pCnt)) * 100;
 
@@ -200,7 +196,7 @@ function computeRisk(matches){
   adjR = Math.max(-85, Math.min(85, adjR));
 
   return {
-    audace: aCnt > 0 ? Math.round((audaceScore / aCnt) * 100) : 50,
+    audace: Math.round(audace),
     adjR: Math.round(adjR)
   };
 }
