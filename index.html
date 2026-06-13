@@ -109,7 +109,7 @@ function parsePlayerSheet(rows){
   }
   for(var i=5;i<rows.length;i++){
     var rw=rows[i]||[];
-    if(rw[0]&&typeof rw[0]==='string'&&String(rw[0]).trim().toLowerCase().indexOf('poule')===0{flush();block=[];curPoule=rw[0];continue;}
+    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0{flush();block=[];curPoule=rw[0];continue;}
     block.push(rw);
   }
   flush();
