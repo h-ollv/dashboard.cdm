@@ -285,7 +285,7 @@ _ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
     });
 
     /* Delta rang */
-    if(prevJ){
+    if(previousPlayedMatch>0){
       var bN=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
       var bP=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
       var rN={},rP={};
