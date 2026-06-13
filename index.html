@@ -298,16 +298,39 @@ Object.keys(pronoCounts).forEach(function(k){
 
     /* Graphique divergent */
     var matchVotes={};
-    out.forEach(function(player){
-      (player.matches||[]).forEach(function(m){
-        if(!m.played||!m.team_a||!m.team_b) return;
-        var key=m.poule+'|'+m.match;
-        if(!matchVotes[key]) matchVotes[key]={poule:m.poule,match:m.match,team_a:m.team_a,team_b:m.team_b,vainqueur:m.vainqueur,a:0,n:0,b:0};
-        var parts=m.match.split(' vs ').map(function(s){return s.trim();});
-        if(m.prono===parts[0]) matchVotes[key].a++;
-        else if(m.prono===parts[1]) matchVotes[key].b++;
-        else if(m.prono.toUpperCase()==='N') matchVotes[key].n++;
-      });
+
+out.forEach(function(player){
+  (player.matches||[]).forEach(function(m){
+
+    if(!m.played||!m.team_a||!m.team_b) return;
+
+    var poule=m.poule||'Poule A';
+
+    var key=poule+'|'+m.match;
+
+    if(!matchVotes[key]){
+      matchVotes[key]={
+        poule:poule,
+        match:m.match,
+        team_a:m.team_a,
+        team_b:m.team_b,
+        vainqueur:m.vainqueur,
+        a:0,
+        n:0,
+        b:0
+      };
+    }
+
+    var parts=m.match.split(' vs ').map(function(s){
+      return s.trim();
+    });
+
+    if(m.prono===parts[0]) matchVotes[key].a++;
+    else if(m.prono===parts[1]) matchVotes[key].b++;
+    else if(m.prono.toUpperCase()==='N') matchVotes[key].n++;
+
+  });
+});
     });
     var divergentData=Object.values(matchVotes).sort(function(a,b){
       if(a.poule<b.poule) return -1; if(a.poule>b.poule) return 1;
