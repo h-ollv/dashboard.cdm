@@ -317,7 +317,24 @@ window.__loadAllData=function(){
       return row;
     });
 
-    if(loading)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p><p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p><p className="mono" style={{color:P.muted,fontSize:8,marginTop:8}}>{PLAYER_SHEETS.length} onglets</p></div></div>;
+    var journeeInfo=players.length===0?[]:progDts.map(function(raw,idx){
+      var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
+      var pts={};
+      players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
+      var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
+      return {label:"J"+(idx+1)+(iP?" (en cours)":""), date:d.slice(5), leader:sr[0]?sr[0].name:'—', pts:sr[0]?pts[sr[0].name]:0};
+    });
+
+    // série du leader actuel : nb de journées complètes consécutives (en partant de la fin) où il était déjà 1er
+    var leaderStreak=0;
+    if(P0 && P0.name && P0.name!=='—'){
+      for(var si=dFP.length-1; si>=0; si--){
+        var sd=dFP[si], spts={};
+        players.forEach(function(p){spts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=sd?m.points:0);},0);});
+        var stop=players.slice().sort(function(a,b){return spts[b.name]-spts[a.name];})[0];
+        if(stop && stop.name===P0.name) leaderStreak++; else break;
+      }
+    }<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p><p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p><p className="mono" style={{color:P.muted,fontSize:8,marginTop:8}}>{PLAYER_SHEETS.length} onglets</p></div></div>;
     if(error)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}><div style={{maxWidth:500,textAlign:"center"}}><p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR</p><p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p><p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>Sheet public requis · vérifier PLAYER_SHEETS</p></div></div>;
 
     return<div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
@@ -348,7 +365,7 @@ window.__loadAllData=function(){
               return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
                 <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
                 <p className="mono" style={{color:cs[i],fontSize:8,letterSpacing:"0.2em",marginBottom:4}}>#{i+1}</p>
-                <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2}}>{p.name}</p>
+                <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2}}>{p.name}{i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11,marginLeft:6}}>🔥{leaderStreak}</span>}</p>
                 {p.delta!==0&&<p className="mono" style={{color:p.delta>0?"#A8C490":"#E8A098",fontSize:8,marginBottom:2}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</p>}
                 <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4}}>{p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span></p>
                 <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
@@ -380,6 +397,12 @@ window.__loadAllData=function(){
         {/* PROGRESSION */}
         {tab==="Progression"&&<div style={{background:P.card,padding:"18px 22px"}}>
           <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
+          {journeeInfo.length>0&&<div style={{marginBottom:12}}>
+            <select onChange={function(e){var info=journeeInfo.find(function(j){return j.leader===e.target.value;});if(info)setFocused([info.leader]);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
+              <option value="">Leader par journée…</option>
+              {journeeInfo.map(function(info){return<option key={info.label} value={info.leader}>{info.label} — {info.leader} ({info.pts} pts)</option>;})}
+            </select>
+          </div>}
           <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
             {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<button key={p.name} onClick={function(){tog(p.name);}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:col}}/><span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span></button>;})}
             {focused.length>0&&<button onClick={function(){setFocused([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
