@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -168,8 +167,7 @@ function computeRisk(matches){
   });
   return{
     audace:aCnt>0?Math.round(aSum/aCnt):50,
-    adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
-  };
+  adjR:(pCnt?((actS/pCnt)-(expS/pCnt))*100:0)*Math.min(1,pCnt/10),  };
 }
 
 window.__loadAllData=function(){
