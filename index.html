@@ -247,16 +247,37 @@ function cumPtsMatch(matches,n){
 var playedM=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';}).sort(function(a,b){return (a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0);});
 var streakHot=0,streakCold=0;
 for(var si=playedM.length-1;si>=0;si--){
-  if(playedM[si].points>0){ if(streakCold>0)break; streakHot++; }
-  else { if(streakHot>0)break; streakCold++; }
+  if(playedM[si].points>0){
+    if(streakCold>0) break;
+    streakHot++;
+  }else{
+    if(streakHot>0) break;
+    streakCold++;
+  }
 }
+
+var maxHot=0,maxCold=0;
+var curHot=0,curCold=0;
+
+playedM.forEach(function(m){
+  if(m.points>0){
+    curHot++;
+    curCold=0;
+    if(curHot>maxHot) maxHot=curHot;
+  }else{
+    curCold++;
+    curHot=0;
+    if(curCold>maxCold) maxCold=curCold;
+  }
+});
       return{
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
         audace:risk.audace, adjR:risk.adjR,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
-streakHot:streakHot, streakCold:streakCold,
+        streakHot:streakHot, streakCold:streakCold,
+        maxHot:maxHot, maxCold:maxCold,
         matches:matches,
         _ptsNow:cumPtsMatch(matches,lastPlayedMatch),
 _ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
@@ -299,25 +320,56 @@ _ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
 
     /* Pari le plus populaire — après out défini */
     var pronoCounts={};
+
 out.forEach(function(player){
+
   (player.matches||[]).forEach(function(m){
+
     if(!m.prono||m.prono==='...'||!m.team_a||!m.team_b) return;
+    if(!m.scorePred||m.scorePred==='...') return;
+
     var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
+
     var teamName;
-    if(m.prono.toUpperCase()==='N') teamName='Match nul';
-    else if(m.prono===parts[0]) teamName=m.team_a;
-    else if(m.prono===parts[1]) teamName=m.team_b;
-    else return;
-    /* clé sur les vrais noms d'équipes, pas les lettres */
+
+    if(m.prono.toUpperCase()==='N'){
+      teamName='Match nul';
+    }else if(m.prono===parts[0]){
+      teamName=m.team_a;
+    }else if(m.prono===parts[1]){
+      teamName=m.team_b;
+    }else{
+      return;
+    }
+
     var matchDisplay=m.team_a+' vs '+m.team_b;
-    var key=matchDisplay+'|'+teamName;
-    if(!pronoCounts[key]) pronoCounts[key]={count:0,teamName:teamName,matchDisplay:matchDisplay};
+
+    var key=
+      matchDisplay+'|'+
+      teamName+'|'+
+      m.scorePred;
+
+    if(!pronoCounts[key]){
+      pronoCounts[key]={
+        count:0,
+        teamName:teamName,
+        score:m.scorePred,
+        matchDisplay:matchDisplay
+      };
+    }
+
     pronoCounts[key].count++;
+
   });
+
 });
+
 var topProno=null;
+
 Object.keys(pronoCounts).forEach(function(k){
-  if(!topProno||pronoCounts[k].count>topProno.count) topProno=pronoCounts[k];
+  if(!topProno || pronoCounts[k].count>topProno.count){
+    topProno=pronoCounts[k];
+  }
 });
 
     /* Pari le plus improbable */
@@ -461,7 +513,19 @@ Object.keys(pronoCounts).forEach(function(k){
         </div>
 
         <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
-          {[{l:"LEADER",v:P0.name+(P0.points?" · "+P0.points+" pts":"")},{l:"MATCHS JOUÉS",v:String(nM)},{l:"TIREUR PRÉCIS",v:bE.name+" · "+(bE.exact||0)+" exact"+(bE.exact>1?"s":"")}].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.v}</p></div>;})}
+          {[
+ {l:"LEADER",v:P0.name+(P0.points?" · "+P0.points+" pts":"")},
+ {l:"MATCHS JOUÉS",v:String(nM)},
+ {l:"SÉRIE EN COURS",v:(function(){
+    var best=players
+      .filter(function(p){return p.streakHot>=2;})
+      .sort(function(a,b){return b.streakHot-a.streakHot;})[0];
+
+    return best
+      ? best.name+" · 🔥"+best.streakHot
+      : "Aucune";
+ })()}
+].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.v}</p></div>;})}
         </div>
 
         <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid "+P.line}}>
@@ -489,9 +553,9 @@ Object.keys(pronoCounts).forEach(function(k){
                   {p.streakCold>=2&&<span className="mono" style={{fontSize:9,fontWeight:700,padding:"2px 5px",background:"#9BB6C930",color:"#3a5a78"}}>🧊{p.streakCold}</span>}
                 </p>
                 <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
-                  {p.correct} correct{p.correct!==1?"s":""}
-                  {p.boosters>0&&<span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>+{p.boosters} boost</span>}
-                </p>
+  {p.correct}/{nM}
+  {p.boosters>0&&<span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>+{p.boosters} boost</span>}
+</p>
               </div>;
             })}
           </div>
@@ -542,7 +606,7 @@ Object.keys(pronoCounts).forEach(function(k){
                     var col=WHEEL[players.indexOf(fp)%WHEEL.length];
                     return<Line key="__focusLabel" type="linear" dataKey={fp.name} stroke="transparent" dot={false} isAnimationActive={false} legendType="none"
                       label={function(props){
-                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Space Mono',monospace" fontSize={10} fontWeight={700} fill={col}>#{props.value}</text>;
+                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={400} fill={col}>#{props.value}</text>;
                       }}/>;
                   })()}</LineChart>
               </ResponsiveContainer>
@@ -610,10 +674,21 @@ Object.keys(pronoCounts).forEach(function(k){
           {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
             <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS POPULAIRE</p>
             <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
-              <span style={{fontWeight:600}}>{topProno.count} joueurs</span> ont pronostiqué{' '}
-              <span style={{color:WHEEL[3],fontWeight:600}}>{topProno.teamName}</span>{' '}
-              dans le match <span style={{color:WHEEL[0]}}>{topProno.matchDisplay}</span>
-            </p>
+  <span style={{fontWeight:600}}>
+    {topProno.count} joueurs
+  </span>{' '}
+  ont pronostiqué{' '}
+  <span style={{color:WHEEL[3],fontWeight:600}}>
+    {topProno.teamName}
+  </span>{' '}
+  <span style={{color:P.muted}}>
+    ({topProno.score})
+  </span>{' '}
+  dans le match{' '}
+  <span style={{color:WHEEL[0]}}>
+    {topProno.matchDisplay}
+  </span>
+</p>
           </div>}
           {topImprobable&&<div style={{border:"1px solid #E8A09888",padding:"16px 20px",background:"#E8A09808"}}>
             <p className="mono" style={{color:"#E8A098",fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
