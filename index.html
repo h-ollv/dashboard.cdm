@@ -217,7 +217,30 @@ window.__loadAllData=function(){
 
     var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
     var refM=pData[refKey]||[];
+    var allPlayedMatches = refM
+  .filter(function(m){return m.played;})
+  .sort(function(a,b){
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    return 0;
+  });
 
+allPlayedMatches.forEach(function(m,i){
+  m.matchIndex = i + 1;
+});
+    function getPtsAtIndex(matches, idx){
+  var played = matches
+    .filter(function(m){return m.played;})
+    .sort(function(a,b){
+      if(a.date!==b.date) return a.date<b.date?-1:1;
+      return 0;
+    });
+
+  var sum = 0;
+  for(var i=0;i<Math.min(idx, played.length);i++){
+    sum += played[i].points || 0;
+  }
+  return sum;
+}
     var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
 
     var byDate={};
@@ -290,6 +313,25 @@ function cumPtsMatch(matches,n){
 
     var out=classement.map(function(e){
       var matches=pData[norm(e.name)]||[];
+      var idxNow = allPlayedMatches.length;
+var idxPrev = Math.max(0, idxNow - 1);
+
+var bN = out.slice().sort(function(a,b){
+  return getPtsAtIndex(b.matches, idxNow) - getPtsAtIndex(a.matches, idxNow);
+});
+
+var bP = out.slice().sort(function(a,b){
+  return getPtsAtIndex(b.matches, idxPrev) - getPtsAtIndex(a.matches, idxPrev);
+});
+
+var rN = {}, rP = {};
+
+bN.forEach(function(p,i){ rN[p.name]=i+1; });
+bP.forEach(function(p,i){ rP[p.name]=i+1; });
+
+out.forEach(function(p){
+  p.delta = (rP[p.name]||0) - (rN[p.name]||0);
+});
       var total_points=e.points||0;
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var risk=computeRisk(matches);
@@ -330,8 +372,6 @@ playedM.forEach(function(m){
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot, maxCold:maxCold,
         matches:matches,
-        _ptsNow:cumPtsMatch(matches,lastPlayedMatch),
-_ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
       };
     });
 
