@@ -14,7 +14,7 @@
 
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body{background:#F5F2EC}
+    html,body{background:#F4F1EA}
     .mono{font-family:'Space Mono',monospace}
     .serif{font-family:'Cormorant Garamond',serif}
     button{font-family:inherit}
@@ -67,7 +67,8 @@ function parsePlayerSheet(rows){
     var teams={};
 
     block.forEach(r=>{
-      if(r[0]&&r[0].indexOf('Equipe')===0) teams[r[0].replace('Equipe','').trim()]=r[1];
+      if(r[0]&&r[0].indexOf('Equipe')===0)
+        teams[r[0].replace('Equipe','').trim()]=r[1];
     });
 
     block.forEach(r=>{
@@ -99,12 +100,6 @@ function parsePlayerSheet(rows){
   return{name:name,matches:matches};
 }
 
-function computeRisk(matches){
-  var a=0,c=0;
-  matches.forEach(m=>{a+=20;c++;});
-  return{audace:c?Math.round(a/c):50,adjR:0};
-}
-
 window.__loadAllData=function(){
   return Promise.all([fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet)))
   .then(res=>{
@@ -118,9 +113,7 @@ window.__loadAllData=function(){
         points:e.points,
         correct:e.correct,
         exact:e.exact,
-        matches:matches,
-        audace:50,
-        adjR:0
+        matches:matches
       };
     });
 
@@ -131,12 +124,12 @@ window.__loadAllData=function(){
 
 <script type="text/babel">
 
-const P = {
-  bg:"#F5F2EC",
+const P={
+  bg:"#F4F1EA",
   card:"#FFFFFF",
-  text:"#111111",
-  muted:"#6F6A63",
-  line:"#E6E0D6"
+  text:"#121212",
+  muted:"#7A746B",
+  line:"#E7E1D6"
 };
 
 const TABS=["Classement","Progression","Risques","Podium"];
@@ -160,7 +153,7 @@ function App(){
     return <div style={{padding:40,fontFamily:"serif"}}>Chargement…</div>;
   }
 
-  const leader = players[0]||{name:"—",points:0};
+  const leader=players[0]||{name:"—",points:0};
 
   return (
     <div style={{background:P.bg,minHeight:"100vh",padding:24}}>
@@ -174,9 +167,8 @@ function App(){
         paddingBottom:16,
         marginBottom:20
       }}>
-
         <div>
-          <h1 className="serif" style={{fontSize:28,fontWeight:400}}>
+          <h1 className="serif" style={{fontSize:30,fontWeight:400}}>
             Pronostics 2026
           </h1>
           <p className="mono" style={{fontSize:10,color:P.muted}}>
@@ -188,16 +180,14 @@ function App(){
           {players.length} joueurs<br/>
           {nM} matchs
         </div>
-
       </div>
 
-      {/* LEADER BAR SIMPLE */}
+      {/* LEADER BAR CLEAN */}
       <div style={{
         display:"flex",
         justifyContent:"space-between",
         marginBottom:20
       }}>
-
         <div className="serif" style={{fontSize:18}}>
           {leader.name}
         </div>
@@ -205,7 +195,6 @@ function App(){
         <div className="mono" style={{fontSize:12}}>
           <span style={{fontWeight:700}}>{leader.points}</span> pts
         </div>
-
       </div>
 
       {/* TABS */}
@@ -226,10 +215,10 @@ function App(){
         ))}
       </div>
 
-      {/* CONTENT SIMPLE */}
+      {/* CLASSEMENT SIMPLE */}
       {tab==="Classement"&&(
         <div>
-          {players.map((p,i)=>(
+          {players.map(p=>(
             <div key={p.name} style={{
               display:"flex",
               justifyContent:"space-between",
