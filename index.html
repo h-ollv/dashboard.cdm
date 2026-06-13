@@ -157,71 +157,19 @@ function toVX(a){
   if(a<25) return (a/25)*50;
   return 50+((a-25)/75)*50;
 }
-function computeVolatility(matches){
-  var pts = [];
-
-  matches.forEach(function(m){
-    if(!m.played) return;
-    pts.push(m.points || 0);
-  });
-
-  if(pts.length <= 1) return 0;
-
-  var mean = pts.reduce((a,b)=>a+b,0) / pts.length;
-  var variance = pts.reduce(function(s,v){
-    return s + Math.pow(v - mean, 2);
-  },0) / pts.length;
-
-  return Math.sqrt(variance); // volatilité simple et stable
-}
-
+  
 function computeRisk(matches){
-  var aSum=0, aCnt=0;
-  var actS=0, expS=0, pCnt=0;
-
+  var AUDACE_SEUIL = 50;
+  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
   matches.forEach(function(m){
-    var ap = getAP(m);
-    if(!ap) return;
-
-    // AUDACE brute
-    aSum += ap.a;
-    aCnt++;
-
-    // PERFORMANCE
-    if(m.played){
-      actS += m.correct ? 1 : 0;
-      expS += ap.p;
-      pCnt++;
-    }
+    var ap=getAP(m);if(!ap)return;
+    if(ap.a >= AUDACE_SEUIL) aSum++;
+aCnt++;
+    if(m.played){actS+=m.correct?1:0;expS+=ap.p;pCnt++;}
   });
-
-  // --- AUDACE = simple et immédiat ---
-  var audace = aCnt > 0 ? (aSum / aCnt) : 50;
-
-  // --- ADJR BRUT ---
-  var rawAdjR = 0;
-  if(pCnt > 0){
-    rawAdjR = ((actS / pCnt) - (expS / pCnt)) * 100;
-  }
-
-  // --- ADJR LISSE (progressif, IMPORTANT) ---
-  var k = 5; // stabilité progressive
-  var shrinkAdjR = ((actS + 1) / (pCnt + 2) - expS / Math.max(1,pCnt)) * 100;
-
-  var w = Math.min(1, pCnt / k); // 0 → brut, 1 → stable
-
-  var adjR = rawAdjR * w + shrinkAdjR * (1 - w);
-
-  // clamp pour éviter les extrêmes absurdes
-  adjR = Math.max(-85, Math.min(85, adjR));
-
-  // --- VOLATILITÉ (FUN + IMMÉDIAT) ---
-  var volatility = computeVolatility(matches);
-
-  return {
-    audace: Math.round(audace),
-    adjR: Math.round(adjR),
-    volatility: Math.round(volatility * 10) / 10
+  return{
+    audace: aCnt > 0 ? Math.round((aSum / aCnt) * 100) : 50,
+    adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
   };
 }
 
