@@ -316,32 +316,29 @@ _ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
     });
 
     /* Delta rang */
-    if(previousPlayedMatch>=0){
-  var bN=out.slice().sort(function(a,b){return b._ptsNow-a._ptsNow;});
-  var bP=out.slice().sort(function(a,b){return b._ptsPrev-a._ptsPrev;});
+    // check si les classements ont réellement changé
+var bN = out.slice().sort(function(a,b){return b._ptsNow - a._ptsNow;});
+var bP = out.slice().sort(function(a,b){return b._ptsPrev - a._ptsPrev;});
 
-  var rN={},rP={};
-  bN.forEach(function(p,i){rN[p.name]=i+1;});
-  bP.forEach(function(p,i){rP[p.name]=i+1;});
+var rN = {}, rP = {};
+bN.forEach(function(p,i){rN[p.name]=i+1;});
+bP.forEach(function(p,i){rP[p.name]=i+1;});
 
-  out.forEach(function(p){
-  var prev=rP[p.name]||0;
-  var now=rN[p.name]||0;
+// détection globale de changement
+var noChange = true;
+out.forEach(function(p){
+  if(rN[p.name] !== rP[p.name]) noChange = false;
+});
 
-  if(prev === 0 || now === 0){
-    p.delta="=";
-    return;
-  }
-
-  if(prev === now){
-    p.delta="=";
+// assignation delta
+out.forEach(function(p){
+  if(noChange){
+    p.delta = "=";
   } else {
-    p.delta = prev - now;
+    var diff = (rP[p.name]||0) - (rN[p.name]||0);
+    p.delta = (diff===0) ? "=" : diff;
   }
 });
-} else {
-  out.forEach(function(p){p.delta="=";});
-}
 
     /* Streak leader */
     var leaderPerDate=completedDates.map(function(d){
