@@ -434,6 +434,15 @@ Object.keys(pronoCounts).forEach(function(k){
   var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
+  function deltaBadge(d, size){
+  if(d>0){
+    return React.createElement("span",{className:"mono",style:{color:"#A8C490",fontSize:size}},"↑"+d);
+  }
+  if(d<0){
+    return React.createElement("span",{className:"mono",style:{color:"#E8A098",fontSize:size}},"↓"+Math.abs(d));
+  }
+  return React.createElement("span",{className:"mono",style:{color:P.muted,fontSize:size}},"=");
+}
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
     {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
@@ -576,19 +585,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
                   {i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11}}>🔥{leaderStreak}</span>}
-                  p.delta>0 ? (
-  <span className="mono" style={{color:"#A8C490",fontSize:9}}>
-    ↑{p.delta}
-  </span>
-) : p.delta<0 ? (
-  <span className="mono" style={{color:"#E8A098",fontSize:9}}>
-    ↓{Math.abs(p.delta)}
-  </span>
-) : (
-  <span className="mono" style={{color:P.muted,fontSize:9}}>
-    =
-  </span>
-)
+                  {deltaBadge(p.delta,9)}
                 </p>
                 <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,marginTop:4,display:"flex",alignItems:"baseline",gap:6}}>
                   {p.points}<span style={{fontSize:9,color:P.muted,fontWeight:400}}> PTS</span>
@@ -610,19 +607,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
                 <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
-                  p.delta>0 ? (
-  <span className="mono" style={{color:"#A8C490",fontSize:8}}>
-    ↑{p.delta}
-  </span>
-) : p.delta<0 ? (
-  <span className="mono" style={{color:"#E8A098",fontSize:8}}>
-    ↓{Math.abs(p.delta)}
-  </span>
-) : (
-  <span className="mono" style={{color:P.muted,fontSize:8}}>
-    =
-  </span>
-)
+                  {deltaBadge(p.delta,8)}
                 </span>
                 {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",marginLeft:4,background:p.streakHot>=2?"#A8C49030":"#9BB6C930",color:p.streakHot>=2?"#5a7a4a":"#3a5a78",flexShrink:0}}>{p.streakHot>=2?"🔥"+p.streakHot:"🧊"+p.streakCold}</span>}
 
