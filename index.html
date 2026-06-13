@@ -190,19 +190,52 @@ window.__loadAllData=function(){
     var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
 
     var byDate={};
-    refM.forEach(function(m){if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
-    var allDates=Object.keys(byDate).sort();
-    var playedDates  =allDates.filter(function(d){return byDate[d].some(function(m){return m.played;});});
-    var completedDates=allDates.filter(function(d){return byDate[d].length>0&&byDate[d].every(function(m){return m.played;});});
+refM.forEach(function(m){
+  if(!m.date)return;
+  if(!byDate[m.date])byDate[m.date]=[];
+  byDate[m.date].push(m);
+});
 
-    var dFD=completedDates.length>0?completedDates:playedDates;
-    var lastJ=dFD.length>0?dFD[dFD.length-1]:null;
-    var prevJ=dFD.length>1?dFD[dFD.length-2]:null;
+var allDates=Object.keys(byDate).sort();
+
+var playedDates=allDates.filter(function(d){
+  return byDate[d].some(function(m){return m.played;});
+});
+
+var completedDates=allDates.filter(function(d){
+  return byDate[d].length>0&&byDate[d].every(function(m){return m.played;});
+});
+
+/* progression classement = match précédent */
+var playedMatches=refM
+  .filter(function(m){return m.played&&m.date;})
+  .sort(function(a,b){
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    return 0;
+  });
+
+var lastPlayedMatch=playedMatches.length;
+var previousPlayedMatch=Math.max(0,lastPlayedMatch-1);
 
     function cumPts(matches,upto){
-      if(!upto)return 0;
-      return matches.reduce(function(s,m){return s+(m.date&&m.date<=upto?m.points:0);},0);
-    }
+  if(!upto)return 0;
+  return matches.reduce(function(s,m){
+    return s+(m.date&&m.date<=upto?m.points:0);
+  },0);
+}
+
+function cumPtsMatch(matches,n){
+  var played=matches
+    .filter(function(m){return m.played;})
+    .sort(function(a,b){
+      if(a.date!==b.date) return a.date<b.date?-1:1;
+      return 0;
+    });
+
+  return played.slice(0,n).reduce(function(s,m){
+    return s+(m.points||0);
+  },0);
+}
 
     var out=classement.map(function(e){
       var matches=pData[norm(e.name)]||[];
@@ -225,8 +258,8 @@ for(var si=playedM.length-1;si>=0;si--){
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
 streakHot:streakHot, streakCold:streakCold,
         matches:matches,
-        _ptsNow:cumPts(matches,lastJ),
-        _ptsPrev:cumPts(matches,prevJ)
+        _ptsNow:cumPtsMatch(matches,lastPlayedMatch),
+_ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
       };
     });
 
