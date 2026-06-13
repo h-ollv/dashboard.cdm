@@ -417,7 +417,31 @@ Object.keys(pronoCounts).forEach(function(k){
       });
     });
 
-    return{players:out,nMatchs:nMatchsJoues,playedDates:playedDates,completedDates:completedDates,topProno:topProno,topImprobable:topImprobable};
+    /* Graphique divergent — matchs joués, groupés par poule */
+var matchVotes={};
+out.forEach(function(player){
+  (player.matches||[]).forEach(function(m){
+    if(!m.played||!m.team_a||!m.team_b) return;
+    var key=m.poule+'|'+m.match;
+    if(!matchVotes[key]) matchVotes[key]={
+      poule:m.poule, match:m.match,
+      team_a:m.team_a, team_b:m.team_b,
+      vainqueur:m.vainqueur,
+      a:0, n:0, b:0
+    };
+    var parts=m.match.split(' vs ').map(function(s){return s.trim();});
+    if(m.prono===parts[0]) matchVotes[key].a++;
+    else if(m.prono===parts[1]) matchVotes[key].b++;
+    else if(m.prono.toUpperCase()==='N') matchVotes[key].n++;
+  });
+});
+var divergentData=Object.values(matchVotes).sort(function(a,b){
+  if(a.poule<b.poule) return -1;
+  if(a.poule>b.poule) return 1;
+  return a.match<b.match?-1:1;
+});
+    
+    return{players:out,nMatchs:nMatchsJoues,playedDates:playedDates,completedDates:completedDates,topProno:topProno,topImprobable:topImprobable,divergentData:divergentData};
   });
 };
 </script>
@@ -476,7 +500,9 @@ Object.keys(pronoCounts).forEach(function(k){
     var _ti=useState(null),topImprobable=_ti[0],setTopImprobable=_ti[1];
 
     useEffect(function(){
+      var _dv=useState([]),divergentData=_dv[0],setDV=_dv[1];
       window.__loadAllData().then(function(r){
+        setDV(r.divergentData||[]);
         var s=r.players.slice().sort(function(a,b){return b.points-a.points||b.exact-a.exact||b.correct-a.correct;});
         s.forEach(function(p,i){p.rank=i+1;});
         setPlayers(s);setNM(r.nMatchs);setPD(r.playedDates||[]);setCD(r.completedDates||[]);
@@ -758,23 +784,31 @@ Object.keys(pronoCounts).forEach(function(k){
   </div>;
 })()}
 
-        {(function(){
-  var VOTES=[{match:"A vs C",a:18,n:3,b:7,result:"A"},{match:"B vs D",a:6,n:4,b:18,result:"B"},{match:"C vs D",a:12,n:8,b:8,result:"C"},{match:"A vs B",a:14,n:2,b:12,result:null}];
-  var T=28;
-  return<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
-    <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PRONOS PAR MATCH</p>
-    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-      {VOTES.map(function(v){
-        var pctA=Math.round(v.a/T*100),pctB=Math.round(v.b/T*100),pctN=Math.round(v.n/T*100);
-        var winA=v.result===v.match.split(" vs ")[0],winB=v.result===v.match.split(" vs ")[1];
-        return<div key={v.match} style={{display:"grid",gridTemplateColumns:"60px 1fr 32px 1fr 60px",gap:4,alignItems:"center"}}>
-          <p className="mono" style={{fontSize:8,color:winA?"#A8C490":P.text,fontWeight:winA?700:400,textAlign:"right"}}>{pctA}%</p>
-          <div style={{display:"flex",justifyContent:"flex-end"}}><div style={{width:pctA+"%",height:18,background:winA?"#A8C490":"#C8A0C4",borderRadius:"2px 0 0 2px"}}/></div>
-          <p className="mono" style={{fontSize:7,color:P.muted,textAlign:"center"}}>{pctN}%<br/>nul</p>
-          <div><div style={{width:pctB+"%",height:18,background:winB?"#A8C490":"#E8A098",borderRadius:"0 2px 2px 0"}}/></div>
-          <p className="mono" style={{fontSize:8,color:winB?"#A8C490":P.text,fontWeight:winB?700:400}}>{pctB}%</p>
-        </div>;
-      })}
+        {divergentData.length>0&&<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
+  <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:14}}>PRONOS PAR MATCH</p>
+  {(function(){
+    var byPoule={};
+    divergentData.forEach(function(v){if(!byPoule[v.poule])byPoule[v.poule]=[];byPoule[v.poule].push(v);});
+    var T=players.length||28;
+    return Object.keys(byPoule).sort().map(function(poule){
+      return<div key={poule} style={{marginBottom:18}}>
+        <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:8,borderBottom:"1px solid "+P.line,paddingBottom:4}}>{poule}</p>
+        {byPoule[poule].map(function(v){
+          var pctA=Math.round(v.a/T*100),pctB=Math.round(v.b/T*100),pctN=Math.round(v.n/T*100);
+          var parts=v.match.split(' vs ').map(function(s){return s.trim();});
+          var winA=v.vainqueur===parts[0],winB=v.vainqueur===parts[1];
+          return<div key={v.match} style={{display:"grid",gridTemplateColumns:"90px 1fr 36px 1fr 90px",gap:4,alignItems:"center",marginBottom:6}}>
+            <p className="mono" style={{fontSize:8,color:winA?"#A8C490":P.text,fontWeight:winA?700:400,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.team_a} {pctA}%</p>
+            <div style={{display:"flex",justifyContent:"flex-end"}}><div style={{width:pctA+"%",height:16,background:winA?"#A8C490":"#C8A0C4",borderRadius:"2px 0 0 2px",minWidth:2}}/></div>
+            <p className="mono" style={{fontSize:7,color:P.muted,textAlign:"center",lineHeight:1.3}}>{pctN}%<br/>nul</p>
+            <div><div style={{width:pctB+"%",height:16,background:winB?"#A8C490":"#E8A098",borderRadius:"0 2px 2px 0",minWidth:2}}/></div>
+            <p className="mono" style={{fontSize:8,color:winB?"#A8C490":P.text,fontWeight:winB?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pctB}% {v.team_b}</p>
+          </div>;
+        })}
+      </div>;
+    });
+  })()}
+</div>}
     </div>
   </div>;
 })()}
