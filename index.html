@@ -159,26 +159,49 @@ function toVX(a){
 }
   
 function computeRisk(matches){
-  var AUDACE_SEUIL_BAS = 30;
-var AUDACE_SEUIL_HAUT = 70;
+  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
 
-var audaceScore = 0;
-var aCnt = 0;
+  var audaceScore = 0;
 
-matches.forEach(function(m){
-  var ap = getAP(m);
-  if(!ap) return;
+  matches.forEach(function(m){
+    var ap = getAP(m);
+    if(!ap) return;
 
-  // score progressif au lieu de binaire
-  if(ap.a <= AUDACE_SEUIL_BAS) audaceScore += 0;
-  else if(ap.a >= AUDACE_SEUIL_HAUT) audaceScore += 1;
-  else audaceScore += 0.5;
+    // audace (progressif)
+    if(ap.a <= 30) audaceScore += 0;
+    else if(ap.a >= 70) audaceScore += 1;
+    else audaceScore += 0.5;
 
-  aCnt++;
-});
-  return{
-audace: aCnt > 0 ? Math.round((audaceScore / aCnt) * 100) : 50,
-    adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
+    aSum += ap.a;
+    aCnt++;
+
+    // performance
+    if(m.played){
+      actS += m.correct ? 1 : 0;
+      expS += ap.p;
+      pCnt++;
+    }
+  });
+
+  var audace = aCnt > 0 ? Math.round((audaceScore / aCnt) * 100) : 50;
+
+  var rawAdjR = 0;
+  if(pCnt > 0){
+    rawAdjR = ((actS / pCnt) - (expS / pCnt)) * 100;
+  }
+
+  var shrinkAdjR =
+    ((actS + 1) / (pCnt + 2) - expS / Math.max(1,pCnt)) * 100;
+
+  var w = Math.min(1, pCnt / 5);
+
+  var adjR = rawAdjR * w + shrinkAdjR * (1 - w);
+
+  adjR = Math.max(-85, Math.min(85, adjR));
+
+  return {
+    audace: aCnt > 0 ? Math.round((audaceScore / aCnt) * 100) : 50,
+    adjR: Math.round(adjR)
   };
 }
 
