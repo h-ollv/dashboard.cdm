@@ -736,76 +736,48 @@ Object.keys(pronoCounts).forEach(function(k){
             </p>
           </div>}
         </div>}
-        var MATCHES=["A vs C","B vs D","C vs D","A vs B"];
-var PLAYERS=["Stan","Jeje","Goyt","Ricco","Paco","Clara","Hugo"];
-var FAKE={
-  "Stan":  ["A","B","N","A"],
-  "Jeje":  ["C","B","A","B"],
-  "Goyt":  ["A","D","C","A"],
-  "Ricco": ["C","B","N","B"],
-  "Paco":  ["A","B","C","A"],
-  "Clara": ["C","D","C","B"],
-  "Hugo":  ["A","B","N","A"]
-};
-var RESULTS=["A","B","C","A"];
-var STATUS={correct:"#A8C490",wrong:"#E8A098",pending:"#E2DCD0"};
+{(function(){
+  var MATCHES=["A vs C","B vs D","C vs D","A vs B"];
+  var PLAYERS=["Stan","Jeje","Goyt","Ricco","Paco","Clara","Hugo"];
+  var FAKE={"Stan":["A","B","N","A"],"Jeje":["C","B","A","B"],"Goyt":["A","D","C","A"],"Ricco":["C","B","N","B"],"Paco":["A","B","C","A"],"Clara":["C","D","C","B"],"Hugo":["A","B","N","A"]};
+  var RESULTS=["A","B","C","A"];
+  var STATUS={correct:"#A8C490",wrong:"#E8A098",pending:"#E2DCD0"};
+  return<div style={{overflowX:"auto",border:"1px solid "+P.line,padding:"16px 20px"}}>
+    <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>HEATMAP DES PRONOS</p>
+    <div style={{display:"grid",gridTemplateColumns:"80px repeat("+MATCHES.length+",1fr)",gap:2}}>
+      <div/>
+      {MATCHES.map(function(m){return<p key={m} className="mono" style={{fontSize:7,color:P.muted,textAlign:"center",padding:"0 4px"}}>{m}</p>;})}
+      {PLAYERS.map(function(p){return[
+        <p key={p+"n"} className="mono" style={{fontSize:8,color:P.text,display:"flex",alignItems:"center"}}>{p}</p>,
+        ...MATCHES.map(function(m,i){var pick=FAKE[p][i],res=RESULTS[i],col=!res?STATUS.pending:pick===res?STATUS.correct:STATUS.wrong;return<div key={p+m} title={p+" → "+pick} style={{background:col,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:2}}><span className="mono" style={{fontSize:8,color:"#fff",fontWeight:700}}>{pick}</span></div>;})
+      ];})}
+    </div>
+    <div style={{display:"flex",gap:12,marginTop:10}}>
+      {Object.entries(STATUS).map(function(e){return<div key={e[0]} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,background:e[1],borderRadius:1}}/><span className="mono" style={{fontSize:7,color:P.muted}}>{e[0]}</span></div>;})}
+    </div>
+  </div>;
+})()}
 
-return<div style={{overflowX:"auto"}}>
-  <div style={{display:"grid",gridTemplateColumns:"80px repeat("+MATCHES.length+",1fr)",gap:2,minWidth:400}}>
-    <div/>
-    {MATCHES.map(function(m){return<p key={m} className="mono" style={{fontSize:7,color:P.muted,textAlign:"center",padding:"0 4px"}}>{m}</p>;})}
-    {PLAYERS.map(function(p){return[
-      <p key={p+"n"} className="mono" style={{fontSize:8,color:P.text,display:"flex",alignItems:"center"}}>{p}</p>,
-      ...MATCHES.map(function(m,i){
-        var pick=FAKE[p][i];
-        var res=RESULTS[i];
-        var col=!res?STATUS.pending:pick===res?STATUS.correct:STATUS.wrong;
-        return<div key={p+m} title={p+" → "+pick} style={{background:col,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:2}}>
-          <span className="mono" style={{fontSize:8,color:"#fff",fontWeight:700}}>{pick}</span>
+        {(function(){
+  var VOTES=[{match:"A vs C",a:18,n:3,b:7,result:"A"},{match:"B vs D",a:6,n:4,b:18,result:"B"},{match:"C vs D",a:12,n:8,b:8,result:"C"},{match:"A vs B",a:14,n:2,b:12,result:null}];
+  var T=28;
+  return<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
+    <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PRONOS PAR MATCH</p>
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {VOTES.map(function(v){
+        var pctA=Math.round(v.a/T*100),pctB=Math.round(v.b/T*100),pctN=Math.round(v.n/T*100);
+        var winA=v.result===v.match.split(" vs ")[0],winB=v.result===v.match.split(" vs ")[1];
+        return<div key={v.match} style={{display:"grid",gridTemplateColumns:"60px 1fr 32px 1fr 60px",gap:4,alignItems:"center"}}>
+          <p className="mono" style={{fontSize:8,color:winA?"#A8C490":P.text,fontWeight:winA?700:400,textAlign:"right"}}>{pctA}%</p>
+          <div style={{display:"flex",justifyContent:"flex-end"}}><div style={{width:pctA+"%",height:18,background:winA?"#A8C490":"#C8A0C4",borderRadius:"2px 0 0 2px"}}/></div>
+          <p className="mono" style={{fontSize:7,color:P.muted,textAlign:"center"}}>{pctN}%<br/>nul</p>
+          <div><div style={{width:pctB+"%",height:18,background:winB?"#A8C490":"#E8A098",borderRadius:"0 2px 2px 0"}}/></div>
+          <p className="mono" style={{fontSize:8,color:winB?"#A8C490":P.text,fontWeight:winB?700:400}}>{pctB}%</p>
         </div>;
-      })
-    ];})}
-  </div>
-  <div style={{display:"flex",gap:12,marginTop:10}}>
-    {Object.entries(STATUS).map(function(e){return<div key={e[0]} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,background:e[1],borderRadius:1}}/><span className="mono" style={{fontSize:7,color:P.muted}}>{e[0]}</span></div>;})}
-  </div>
-</div>
-        var MATCHES2=["A vs C","B vs D","C vs D","A vs B"];
-var VOTES=[
-  {match:"A vs C", a:18, n:3, b:7,  result:"A"},
-  {match:"B vs D", a:6,  n:4, b:18, result:"B"},
-  {match:"C vs D", a:12, n:8, b:8,  result:"C"},
-  {match:"A vs B", a:14, n:2, b:12, result:null}
-];
-var T=28;
-
-return<div style={{display:"flex",flexDirection:"column",gap:8}}>
-  <div style={{display:"grid",gridTemplateColumns:"60px 1fr 32px 1fr 60px",gap:4,alignItems:"center",marginBottom:4}}>
-    <p className="mono" style={{fontSize:7,color:P.muted,textAlign:"right"}}>Eq. A</p>
-    <div/><div/><div/>
-    <p className="mono" style={{fontSize:7,color:P.muted}}>Eq. B</p>
-  </div>
-  {VOTES.map(function(v){
-    var pctA=Math.round(v.a/T*100),pctB=Math.round(v.b/T*100),pctN=Math.round(v.n/T*100);
-    var winA=v.result===v.match.split(" vs ")[0], winB=v.result===v.match.split(" vs ")[1];
-    return<div key={v.match} style={{display:"grid",gridTemplateColumns:"60px 1fr 32px 1fr 60px",gap:4,alignItems:"center"}}>
-      <p className="mono" style={{fontSize:8,color:winA?"#A8C490":P.text,fontWeight:winA?700:400,textAlign:"right"}}>{pctA}%</p>
-      <div style={{display:"flex",justifyContent:"flex-end"}}>
-        <div style={{width:pctA+"%",height:18,background:winA?"#A8C490":"#C8A0C4",borderRadius:"2px 0 0 2px",transition:"width .4s"}}/>
-      </div>
-      <p className="mono" style={{fontSize:7,color:P.muted,textAlign:"center"}}>{pctN}%<br/>nul</p>
-      <div>
-        <div style={{width:pctB+"%",height:18,background:winB?"#A8C490":"#E8A098",borderRadius:"0 2px 2px 0",transition:"width .4s"}}/>
-      </div>
-      <p className="mono" style={{fontSize:8,color:winB?"#A8C490":P.text,fontWeight:winB?700:400}}>{pctB}%</p>
-    </div>;
-  })}
-  <div style={{display:"flex",gap:12,marginTop:6}}>
-    <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,background:"#A8C490",borderRadius:1}}/><span className="mono" style={{fontSize:7,color:P.muted}}>résultat correct</span></div>
-    <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,background:"#E8A098",borderRadius:1}}/><span className="mono" style={{fontSize:7,color:P.muted}}>résultat raté</span></div>
-  </div>
-</div>
-
+      })}
+    </div>
+  </div>;
+})()}
       </div>
     </div>;
   }
