@@ -1,7 +1,3 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -616,10 +612,7 @@ Object.keys(pronoCounts).forEach(function(k){
     var dFP=completedDates.length>0?completedDates:playedDates;
     var enC=playedDates.filter(function(d){return completedDates.indexOf(d)<0;});
     var progDts=dFP.concat(enC.length>0?[enC[enC.length-1]+"__p"]:[]);
-    var filteredProgDts=selectedJournee
-      ? progDts.slice(0,journeeInfo.findIndex(function(j){return j.label===selectedJournee;})+1)
-      : progDts;
-    var progData=players.length===0?[]:filteredProgDts.map(function(raw,idx){
+    var progData=players.length===0?[]:progDts.map(function(raw,idx){
       var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
       var pts={};
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
@@ -635,6 +628,18 @@ Object.keys(pronoCounts).forEach(function(k){
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
       var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
       return{label:"J"+(idx+1)+(iP?" (en cours)":""),date:d.slice(5),leader:sr[0]?sr[0].name:'—',pts:sr[0]?pts[sr[0].name]:0};
+    });
+
+    var filteredProgDts=selectedJournee
+      ? progDts.slice(0,journeeInfo.findIndex(function(j){return j.label===selectedJournee;})+1)
+      : progDts;
+    var progData=players.length===0?[]:filteredProgDts.map(function(raw,idx){
+      var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
+      var pts={};
+      players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
+      var row={j:"J"+(idx+1)+(iP?" ⏳":"")};
+      players.forEach(function(p){row[p.name]=pts[p.name]||0;});
+      return row;
     });
 
     var leaderStreak=0;
