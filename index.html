@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -753,6 +752,7 @@ Object.keys(pronoCounts).forEach(function(k){
               pour <span style={{color:"#E8A098",fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
               contre <span style={{color:P.muted}}>{topImprobable.oppTeam}</span>
             </p>
+          </div>}
           {divergentData.length>0&&(function(){
             var poules=[...new Set(divergentData.map(function(v){return v.poule;}).filter(function(p){return p&&p!==null&&p!=='null';}))].sort();
             if(!filterPoule&&poules.length>0) setTimeout(function(){setFilterPoule(poules[0]);},0);
