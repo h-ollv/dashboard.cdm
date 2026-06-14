@@ -542,8 +542,14 @@ Object.keys(pronoCounts).forEach(function(k){
   var CartesianGrid=Recharts.CartesianGrid,Tooltip=Recharts.Tooltip;
   var ResponsiveContainer=Recharts.ResponsiveContainer;
 
-  var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
-  var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
+  var P={
+  bg:"#F7F4EF",
+  card:"#FDFCF9",
+  text:"#0D0D0C",
+  muted:"#9C9A97",
+  line:"#E0DED8"
+};
+  var WHEEL=["#F4A0C8","#E8A0F0","#C4A8F8","#A8B8F8","#A0D8F4","#A0F0E0","#A8F0B8","#C8F0A0","#F0F0A0","#F8D890","#F8B888","#F89898","#F4A8B8","#E0A0E8","#B8A8F8","#98C8F8","#98EEE8","#A8F8CC","#D0F898","#F8F098","#F8CC88","#F8A888","#F89898","#F4A0B0","#E898E0","#C098F8","#98B8F8","#98E8E8"];
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
@@ -554,8 +560,7 @@ Object.keys(pronoCounts).forEach(function(k){
   function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
   var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
-  function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
-  function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cr size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cr size={8}/></div>;}
+  function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,borderBottom:"1px solid "+P.line,paddingBottom:10}}><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span></div>;}
 
   function Pod(props){
     var top3=props.data.slice().sort(function(a,b){return b.val-a.val;}).filter(function(d){return d.val>0;}).slice(0,3);
@@ -662,16 +667,17 @@ Object.keys(pronoCounts).forEach(function(k){
     return<div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
       <div style={{maxWidth:820,margin:"0 auto"}}>
 
-        <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,position:"relative"}}>
-          <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC ✦</p>
-          <h1 className="serif" style={{color:P.text,fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Pronostics Dashboard</h1>
-          <div style={{position:"absolute",top:0,left:0}}><Cr size={10}/></div>
-          <div style={{position:"absolute",top:0,right:0}}><Cr size={10}/></div>
+        <div style={{paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+          <h1 className="serif" style={{color:P.text,fontSize:38,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Rattepit FC</h1>
+          <div style={{textAlign:"right"}}>
+            <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.18em",textTransform:"uppercase"}}>Coupe du Monde 2026</p>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.12em",marginTop:3}}>Phase de groupes</p>
+          </div>
         </div>
 
         <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
           {[
- {l:"LEADER",v:P0.name+(P0.points?" · "+P0.points+" pts":"")},
+ {l:"LEADER",v:P0.name,sub:P0.points?P0.points+" pts":""},
  {l:"MATCHS JOUÉS",v:String(nM)},
  {l:"SÉRIE EN COURS",v:(function(){
     var best=players
@@ -682,7 +688,7 @@ Object.keys(pronoCounts).forEach(function(k){
       ? best.name+" · 🔥"+best.streakHot
       : "Aucune";
  })()}
-].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.v}</p></div>;})}
+].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="serif" style={{color:P.text,fontSize:16,fontWeight:400,lineHeight:1}}>{k.v}</p>{k.sub&&<p className="mono" style={{color:P.muted,fontSize:8,marginTop:2}}>{k.sub}</p>}</div>;})}
         </div>
 
         <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid "+P.line}}>
@@ -691,7 +697,6 @@ Object.keys(pronoCounts).forEach(function(k){
 
         {/* CLASSEMENT */}
         {tab==="Classement"&&<div style={{background:P.card,padding:"18px 22px"}}>
-          <ST>{nM} match{nM!==1?"s":""} joué{nM!==1?"s":""}</ST>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             {players.slice(0,3).map(function(p,i){
               var gs=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
