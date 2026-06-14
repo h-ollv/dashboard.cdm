@@ -458,14 +458,19 @@ Object.keys(pronoCounts).forEach(function(k){
 };
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
-  var ZONES=[
-    {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
-    {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
-    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
-    {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
-  ];
+  var ZONES = [
+  {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#9EE2EB",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
+  {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#D7FFA3",x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
+  {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#F75E50",x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
+  {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E82C6D",x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
+];
   function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
-  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
+  var ZC = {
+  platdupied: "#9EE2EB",
+  genie: "#D7FFA3",
+  timberland: "#F75E50",
+  foudubas: "#E82C6D"
+};
 
   function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
   function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cr size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cr size={8}/></div>;}
@@ -793,7 +798,7 @@ Object.keys(pronoCounts).forEach(function(k){
             :<div>
               <ResponsiveContainer width="100%" height={340}>
                 <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
-                  <CartesianGrid stroke={P.line} strokeOpacity={0.6}/>
+                  <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
                   <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
                   <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
                   <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
