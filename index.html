@@ -143,7 +143,14 @@ function getAP(m){
   else return null;
 
   var base = ap(diff);
+  // =========================
+// NORMALISATION PAR MATCH
+// =========================
+var share = m._voteShare != null ? m._voteShare : 1;
+var entropyFactor = 1 - Math.abs(0.5 - share) * 2; 
+// 1 = match équilibré, 0 = écrasé
 
+var matchIntensity = 0.6 + entropyFactor * 0.8;
   // =========================
   // 1. RARETE SOCIALE (CRITIQUE)
   // =========================
@@ -169,10 +176,11 @@ function getAP(m){
   // SCORE FINAL AUDACE
   // =========================
   base.a =
-    0.45 * base.a +
-    0.40 * socialRisk +
-    0.15 * oddsRisk +
-    upsetBonus;
+  (0.45 * base.a +
+   0.40 * socialRisk +
+   0.15 * oddsRisk +
+   upsetBonus)
+  * matchIntensity;
 
   base.a = Math.max(0, Math.min(100, base.a));
 
