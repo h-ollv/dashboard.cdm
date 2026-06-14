@@ -734,23 +734,10 @@ Object.keys(pronoCounts).forEach(function(k){
   display:"flex",
   alignItems:"center",
   justifyContent:"flex-end",
-  gap:6,
-  width:72,
+  gap:4,
+  width:78,
   flexShrink:0
 }}>
-  {p.lastMatchGain>0 && (
-    <span
-      className="mono"
-      style={{
-        color:"#A8C490",
-        fontSize:8,
-        fontWeight:700
-      }}
-    >
-      +{p.lastMatchGain}
-    </span>
-  )}
-
   <span
     className="mono"
     style={{
@@ -761,6 +748,19 @@ Object.keys(pronoCounts).forEach(function(k){
   >
     {p.points}
   </span>
+
+  {p.lastMatchGain>0 && (
+    <span
+      className="mono"
+      style={{
+        color:P.muted,
+        fontSize:8,
+        fontWeight:400
+      }}
+    >
+      +{p.lastMatchGain}
+    </span>
+  )}
 </div>
               </div>;
             })}
