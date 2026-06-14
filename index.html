@@ -31,7 +31,7 @@ var PLAYER_SHEETS = [
   "Laura 1","Greg 1","Nikola 1","Paco 1","Cyrille 1","Joris 1","Steph 1","Mathys 1",
   "Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"
 ];
-
+var GROUP_AUDACITY = {};
 function norm(s){return s?s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim():'';}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
@@ -124,24 +124,34 @@ function getAP(m){
 
   var ASCORE={'-3':100,'-2':75,'-1':50,'0':25,'1':10,'2':5,'3':0};
   var PSCORE={'-3':0.10,'-2':0.20,'-1':0.35,'0':0.50,'1':0.62,'2':0.72,'3':0.82};
+
   function ap(diff){
     var k=String(Math.max(-3,Math.min(3,diff)));
     return{a:ASCORE[k]||0,p:PSCORE[k]||0.50};
   }
 
+  // 🔥 NOUVEAU : audace de groupe
+  var groupKey = (m.match||'') + '|' + prono + '|' + m.scorePred;
+  var groupA = GROUP_AUDACITY[groupKey];
+  groupA = groupA == null ? 0 : groupA;
+
+  function boost(v){
+    return v + groupA * 40;
+  }
+
   if(prono.toUpperCase()==='N'){
-    if(cote==='nul') return{a:0,p:0.26};
+    if(cote==='nul') return{a:boost(0),p:0.26};
     var np=cote.split('-').map(Number);
     if(np.length===2&&!isNaN(np[0])&&!isNaN(np[1])){
       var d=Math.abs(np[1]-np[0]);
-      if(d<=1) return{a:0,p:0.26};
-      if(d===2) return{a:20,p:0.18};
-      return{a:35,p:0.12};
+      if(d<=1) return{a:boost(0),p:0.26};
+      if(d===2) return{a:boost(20),p:0.18};
+      return{a:boost(35),p:0.12};
     }
-    return{a:20,p:0.18};
+    return{a:boost(20),p:0.18};
   }
 
-  if(cote==='nul') return{a:25,p:0.50};
+  if(cote==='nul') return{a:boost(25),p:0.50};
 
   var cp=cote.split('-').map(Number);
   if(cp.length!==2||isNaN(cp[0])||isNaN(cp[1])) return null;
@@ -152,7 +162,12 @@ function getAP(m){
   else if(prono===pts[1]) diff=cp[0]-cp[1];
   else return null;
 
-  return ap(diff);
+  var base = ap(diff);
+
+  return {
+    a: boost(base.a),
+    p: base.p
+  };
 }
 
 function toVX(a){
@@ -353,56 +368,72 @@ _ptsPrev:cumPtsMatch(matches,previousPlayedMatch)
     }
 
     /* Pari le plus populaire — après out défini */
-    var pronoCounts={};
+    var pronoCounts = {};
+var matchTotals = {};
 
 out.forEach(function(player){
 
   (player.matches||[]).forEach(function(m){
 
-    if(!m.prono||m.prono==='...'||!m.team_a||!m.team_b) return;
-    if(!m.scorePred||m.scorePred==='...') return;
+    if(!m.prono || m.prono==='...' || !m.team_a || !m.team_b) return;
+    if(!m.scorePred || m.scorePred==='...') return;
 
-    var parts=(m.match||'').split(' vs ').map(function(s){return s.trim();});
+    var parts = (m.match||'').split(' vs ').map(function(s){return s.trim();});
 
     var teamName;
 
     if(m.prono.toUpperCase()==='N'){
-      teamName='Match nul';
-    }else if(m.prono===parts[0]){
-      teamName=m.team_a;
-    }else if(m.prono===parts[1]){
-      teamName=m.team_b;
-    }else{
+      teamName = 'Match nul';
+    } else if(m.prono === parts[0]) {
+      teamName = m.team_a;
+    } else if(m.prono === parts[1]) {
+      teamName = m.team_b;
+    } else {
       return;
     }
 
-    var matchDisplay=m.team_a+' vs '+m.team_b;
+    var matchDisplay = m.team_a + ' vs ' + m.team_b;
 
-    var key=
-      matchDisplay+'|'+
-      teamName+'|'+
+    var key =
+      matchDisplay + '|' +
+      teamName + '|' +
       m.scorePred;
 
     if(!pronoCounts[key]){
-      pronoCounts[key]={
-        count:0,
-        teamName:teamName,
-        score:m.scorePred,
-        matchDisplay:matchDisplay
+      pronoCounts[key] = {
+        count: 0,
+        teamName: teamName,
+        score: m.scorePred,
+        matchDisplay: matchDisplay
       };
     }
 
     pronoCounts[key].count++;
-
   });
-
 });
 
-var topProno=null;
+// total par match
+Object.keys(pronoCounts).forEach(function(k){
+  var item = pronoCounts[k];
+  matchTotals[item.matchDisplay] = (matchTotals[item.matchDisplay] || 0) + item.count;
+});
+
+// calcul audace groupe
+Object.keys(pronoCounts).forEach(function(k){
+  var item = pronoCounts[k];
+  var total = matchTotals[item.matchDisplay] || 1;
+  var freq = item.count / total;
+
+  item.groupAudacity = 1 - freq;
+
+  GROUP_AUDACITY[k] = item.groupAudacity;
+});
+
+var topProno = null;
 
 Object.keys(pronoCounts).forEach(function(k){
-  if(!topProno || pronoCounts[k].count>topProno.count){
-    topProno=pronoCounts[k];
+  if(!topProno || pronoCounts[k].count > topProno.count){
+    topProno = pronoCounts[k];
   }
 });
 
@@ -450,54 +481,17 @@ Object.keys(pronoCounts).forEach(function(k){
   var CartesianGrid=Recharts.CartesianGrid,Tooltip=Recharts.Tooltip;
   var ResponsiveContainer=Recharts.ResponsiveContainer;
 
-  var P={
-  bg:"#F7F4EF",
-  card:"#FDFCF9",
-  text:"#0D0D0C",
-  muted:"#9C9A97",
-  line:"#E0DED8"
-};
+  var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
-  {
-    key:"platdupied",
-    label:"PLAT DU PIED",
-    sub:"Prudent · surperforme",
-    gradient:"linear-gradient(135deg,#FE81E4 50%,#90E6FF 100%)",
-    x1:-10,x2:50,y1:0,y2:55,
-    corner:{top:28,left:52},
-    align:"left"
-  },
-  {
-    key:"genie",
-    label:"GÉNIE",
-    sub:"Audacieux · surperforme",
-    gradient:"linear-gradient(135deg,#FFDF6B 50%,#FE7503 100%)",
-    x1:50,x2:110,y1:0,y2:55,
-    corner:{top:28,right:52},
-    align:"right"
-  },
-  {
-    key:"timberland",
-    label:"TIMBERLAND",
-    sub:"Prudent · sous-performe",
-    gradient:"linear-gradient(135deg,#FE2B2B 50%,#FE81E4 100%)",
-    x1:-10,x2:50,y1:-85,y2:0,
-    corner:{bottom:40,left:52},
-    align:"left"
-  },
-  {
-    key:"foudubas",
-    label:"FOU DU BUS",
-    sub:"Audacieux · sous-performe",
-    gradient:"linear-gradient(135deg,#FFDF6B 0%,#C1F57E 50%)",
-    x1:50,x2:110,y1:-85,y2:0,
-    corner:{bottom:40,right:52},
-    align:"right"
-  }
-];
+    {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
+    {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
+    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
+    {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
+  ];
   function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
+  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
   function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
   function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cr size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cr size={8}/></div>;}
@@ -848,7 +842,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
                 var isTop=z.y1>=0;
                 var pos=Object.assign({position:"absolute"},z.corner);
-                return<div key={z.key} style={Object.assign({},pos,{   textAlign:z.align,   pointerEvents:"none",   zIndex:2,   padding:"6px 10px",   minWidth:90,   border:"none",   background:z.gradient })}>
+                return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"6px 10px",minWidth:90,border:"1px solid "+z.c+(isTop?"":"88"),background:isTop?z.c+"28":P.card+"F0"})}>
                   <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>{z.label}</p>
                   <p className="mono" style={{color:z.c,fontSize:20,fontWeight:700,lineHeight:1}}>{count}</p>
                   <p className="mono" style={{color:z.c,fontSize:7,marginTop:2,opacity:0.8}}>{z.sub}</p>
@@ -856,7 +850,7 @@ Object.keys(pronoCounts).forEach(function(k){
               })}
               <ResponsiveContainer width="100%" height={420}>
                 <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                  {ZONES.map(function(z){   return <ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.gradient} fillOpacity={0.18}/>; })}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
+                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
                   <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
                   <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
                   <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
@@ -866,7 +860,7 @@ Object.keys(pronoCounts).forEach(function(k){
   var sign=d.adjR>=0?"+":"";
   var zKey=gz({x:d.audace,y:d.adjR});
   var zLabels={platdupied:"PLAT DU PIED",genie:"GÉNIE",timberland:"TIMBERLAND",foudubas:"FOU DU BUS"};
-  var zCol={   platdupied:"linear-gradient(135deg,#FE81E4 50%,#90E6FF 100%)",   genie:"linear-gradient(135deg,#FFDF6B 50%,#FE7503 100%)",   timberland:"linear-gradient(135deg,#FE2B2B 50%,#FE81E4 100%)",   foudubas:"linear-gradient(135deg,#FFDF6B 0%,#C1F57E 50%)" }[zKey];
+  var zCol=ZC[zKey];
   return<div style={Object.assign({},TT)}>
     <p style={{fontWeight:700,marginBottom:4}}>{d.name}</p>
     <p className="mono" style={{color:zCol,fontSize:8,fontWeight:700,letterSpacing:"0.12em",marginBottom:8}}>{zLabels[zKey]}</p>
