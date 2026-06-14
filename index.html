@@ -758,20 +758,14 @@ Object.keys(pronoCounts).forEach(function(k){
           {divergentData.length>0&&(function(){
            var poules=[...new Set(
   divergentData
-    .map(function(v){
-      return (v.poule||'').toString().trim();
-    })
-    .filter(function(p){
-      return p!=='';
-    })
+    .map(function(v){return (v.poule||'').toString().trim();})
+    .filter(function(p){return p!=='';})
 )].sort();
 
-console.log('POULES', poules);
-
-var activePoule=filterPoule||poules[0]||'';
+console.log([...new Set(divergentData.map(function(v){return v.poule;}))]);
 
 var filtered=divergentData.filter(function(v){
-  return ((v.poule||'').toString().trim())===activePoule;
+  return ((v.poule||'').toString().trim())===filterPoule;
 });
 });
             var GOLD="#C9A84C";
