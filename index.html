@@ -109,7 +109,8 @@ function parsePlayerSheet(rows){
   for(var i=5;i<rows.length;i++){
     var rw=rows[i]||[];
     if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){flush();block=[];curPoule=rw[0];continue;}
-    block.push(rw);
+    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Equipe')===0&&rw[1]) block.unshift(rw);
+    else block.push(rw);
   }
   flush();
   return{name:name.trim()||null,matches:matches};
@@ -772,6 +773,7 @@ Object.keys(pronoCounts).forEach(function(k){
                   var winA=v.vainqueur===parts[0],winB=v.vainqueur===parts[1],winN=!winA&&!winB&&v.vainqueur&&v.vainqueur!=='...';
                   var total=v.a+v.n+v.b||1;
                   var wA=Math.round(v.a/total*BAR),wN=Math.round(v.n/total*BAR),wB=BAR-wA-wN;
+                  var pA=Math.round(v.a/total*100),pN=Math.round(v.n/total*100),pB=100-pA-pN;
                   return<div key={v.match} style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:8,alignItems:"center"}}>
                     <div style={{textAlign:"right"}}>
                       <span className="serif" style={{fontSize:14,color:winA?GOLD:P.text,fontWeight:winA?600:400}}>{v.team_a}</span>
@@ -779,13 +781,13 @@ Object.keys(pronoCounts).forEach(function(k){
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                       <div style={{display:"flex",width:BAR,height:20,alignItems:"center"}}>
                         {v.a>0&&<div style={{flex:v.a,height:"100%",background:winA?"#C9A84C99":"#C8A0C488",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:winA?"#7a5a00":P.text,fontWeight:winA?700:400,lineHeight:1}}>{v.a}</span>
+                          <span className="mono" style={{fontSize:7,color:winA?"#7a5a00":P.text,fontWeight:winA?700:400,lineHeight:1}}>{pA+"%"}</span>
                         </div>}
                         {v.n>0&&<div style={{flex:v.n,height:"100%",background:"#8A848088",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:winN?"#7a5a00":P.muted,lineHeight:1}}>{v.n}</span>
+                          <span className="mono" style={{fontSize:7,color:winN?"#7a5a00":P.muted,lineHeight:1}}>{pN+"%"}</span>
                         </div>}
                         {v.b>0&&<div style={{flex:v.b,height:"100%",background:winB?"#C9A84C99":"#90B8D888",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:winB?"#7a5a00":P.text,fontWeight:winB?700:400,lineHeight:1}}>{v.b}</span>
+                          <span className="mono" style={{fontSize:7,color:winB?"#7a5a00":P.text,fontWeight:winB?700:400,lineHeight:1}}>{pB+"%"}</span>
                         </div>}
                       </div>
                     </div>
