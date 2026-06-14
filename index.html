@@ -422,7 +422,7 @@ Object.keys(pronoCounts).forEach(function(k){
     var matchVotes={};
     out.forEach(function(player){
       (player.matches||[]).forEach(function(m){
-        if(!m.played||!m.team_a||!m.team_b) return;
+        if(!m.played||!m.team_a) return;
         var key=m.poule+'|'+m.match;
         if(!matchVotes[key]) matchVotes[key]={poule:m.poule,match:m.match,team_a:m.team_a,team_b:m.team_b,vainqueur:m.vainqueur,a:0,n:0,b:0};
         var parts=m.match.split(' vs ').map(function(s){return s.trim();});
