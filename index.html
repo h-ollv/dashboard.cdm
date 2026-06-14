@@ -244,8 +244,7 @@ function computeRisk(matches){
 
   return {
     audace: Math.round(audace),
-    adjR: Math.round(adjR),
-    variance: Math.round(variance)
+    adjR: Math.round(adjR)
   };
 }
 
@@ -352,7 +351,7 @@ playedM.forEach(function(m){
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace, adjR:risk.adjR, variance:risk.variance,
+        audace:risk.audace, adjR:risk.adjR,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot,
@@ -819,86 +818,50 @@ Object.keys(pronoCounts).forEach(function(k){
         </div>}
 
         {/* RISQUES */}
-        {tab==="Risques"&&(function(){
-          var maxPts=Math.max(1,...players.map(function(p){return p.points;}));
-          var minPts=Math.min(...players.map(function(p){return p.points;}));
-          var audaces=players.map(function(p){return p.audace;}).sort(function(a,b){return a-b;});
-          var vars=players.map(function(p){return p.variance||0;}).sort(function(a,b){return a-b;});
-          var n=players.length;
-          function pct(arr,v){var c=arr.filter(function(x){return x<=v;}).length;return c/arr.length;}
-
-          function playerColor(p){
-            var ap=pct(audaces,p.audace);
-            var vp=pct(vars,p.variance||0);
-            var h=Math.round(200 - ap*200); // 200=bleu (safe) → 0=rouge (audacieux)
-            var s=Math.round(40 + vp*60);   // 40% (constant) → 100% (imprévisible)
-            var adjNorm=(p.adjR+85)/170;     // 0→1
-            var l=Math.round(30 + adjNorm*35); // 30% (sous-perf) → 65% (surperf)
-            return"hsl("+h+","+s+"%,"+l+"%)";
-          }
-
-          function dotSize(p){
-            if(maxPts===minPts) return 10;
-            return Math.round(6+((p.points-minPts)/(maxPts-minPts))*14);
-          }
-
-          var W=560,H=340,PAD=40;
-          var plotW=W-PAD*2,plotH=H-PAD*2;
-
-          return<div style={{background:P.card,padding:"18px 22px"}}>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:16}}>AUDACE → / RÉUSSITE ↑ · TAILLE = POINTS · COULEUR = PROFIL</p>
-            <div style={{position:"relative",overflowX:"auto"}}>
-              <svg width={W} height={H} style={{display:"block"}}>
-                {/* axes */}
-                <line x1={PAD} y1={H-PAD} x2={W-PAD} y2={H-PAD} stroke={P.line} strokeWidth={1}/>
-                <line x1={PAD} y1={PAD} x2={PAD} y2={H-PAD} stroke={P.line} strokeWidth={1}/>
-                {/* labels axes */}
-                <text x={W/2} y={H-6} textAnchor="middle" fontFamily="'Space Mono',monospace" fontSize={8} fill={P.muted}>← CONFORMISTE · AUDACE · FLAMBEUR →</text>
-                <text x={10} y={H/2} textAnchor="middle" fontFamily="'Space Mono',monospace" fontSize={8} fill={P.muted} transform={"rotate(-90,10,"+H/2+")"}>RÉUSSITE</text>
-                {/* ligne médiane */}
-                <line x1={PAD} y1={PAD+plotH/2} x2={W-PAD} y2={PAD+plotH/2} stroke={P.line} strokeDasharray="3 3" strokeWidth={1}/>
-                <line x1={PAD+plotW/2} y1={PAD} x2={PAD+plotW/2} y2={H-PAD} stroke={P.line} strokeDasharray="3 3" strokeWidth={1}/>
-                {/* dots */}
-                {players.map(function(p){
-                  var on=focusedR.length===0||focusedR.indexOf(p.name)>=0;
-                  var ap=pct(audaces,p.audace);
-                  var adjNorm=(p.adjR+85)/170;
-                  var x=PAD+ap*plotW;
-                  var y=PAD+(1-adjNorm)*plotH;
-                  var r=dotSize(p);
-                  var col=playerColor(p);
-                  var jx=((players.indexOf(p)*7+3)%5)*2-4;
-                  var jy=((players.indexOf(p)*11+5)%7)*2-6;
-                  x=Math.max(PAD+r,Math.min(W-PAD-r,x+jx));
-                  y=Math.max(PAD+r,Math.min(H-PAD-r,y+jy));
-                  return<g key={p.name} style={{cursor:"pointer"}} onClick={function(){setFocusedR(function(prev){return prev.indexOf(p.name)>=0?prev.filter(function(x){return x!==p.name;}):prev.concat([p.name]);});}}>
-                    <circle cx={x} cy={y} r={r} fill={col} fillOpacity={on?0.92:0.08} stroke={on?"#fff":"transparent"} strokeWidth={1.5}/>
-                    {on&&focusedR.indexOf(p.name)>=0&&<text x={x} y={y-r-4} textAnchor="middle" fontFamily="'Space Mono',monospace" fontSize={8} fill={col}>{p.name}</text>}
-                  </g>;
-                })}
-              </svg>
-            </div>
-            {/* tooltip hover */}
-            <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:14}}>
-              {players.map(function(p){
-                var col=playerColor(p);
-                var iF=focusedR.indexOf(p.name)>=0;
-                var on=focusedR.length===0||iF;
-                return<button key={p.name} onClick={function(){setFocusedR(function(prev){return prev.indexOf(p.name)>=0?prev.filter(function(x){return x!==p.name;}):prev.concat([p.name]);});}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}>
-                  <div style={{width:5,height:5,borderRadius:"50%",background:col}}/>
-                  <span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span>
-                </button>;
+        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{background:P.card,padding:"18px 22px"}}>
+            <div style={{position:"relative",height:420}}>
+              {ZONES.map(function(z){
+                var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
+                var isTop=z.y1>=0;
+                var pos=Object.assign({position:"absolute"},z.corner);
+                return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"6px 10px",minWidth:90,border:"1px solid "+z.c+(isTop?"":"88"),background:isTop?z.c+"28":P.card+"F0"})}>
+                  <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>{z.label}</p>
+                  <p className="mono" style={{color:z.c,fontSize:20,fontWeight:700,lineHeight:1}}>{count}</p>
+                  <p className="mono" style={{color:z.c,fontSize:7,marginTop:2,opacity:0.8}}>{z.sub}</p>
+                </div>;
               })}
-              {focusedR.length>0&&<button onClick={function(){setFocusedR([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
+              <ResponsiveContainer width="100%" height={420}>
+                <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
+                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
+                  <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
+                  <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
+                  <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
+  if(!p.active||!p.payload||!p.payload.length)return null;
+  var d=p.payload[0].payload;
+  var reussite=nM>0?Math.round(d.correct/nM*100):0;
+  var sign=d.adjR>=0?"+":"";
+  var zKey=gz({x:d.audace,y:d.adjR});
+  var zLabels={platdupied:"PLAT DU PIED",genie:"GÉNIE",timberland:"TIMBERLAND",foudubas:"FOU DU BUS"};
+  var zCol=ZC[zKey];
+  return<div style={Object.assign({},TT)}>
+    <p style={{fontWeight:700,marginBottom:4}}>{d.name}</p>
+    <p className="mono" style={{color:zCol,fontSize:8,fontWeight:700,letterSpacing:"0.12em",marginBottom:8}}>{zLabels[zKey]}</p>
+    <p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p>
+    <p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p>
+    <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
+  </div>;
+}}/>
+                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
+                </ScatterChart>
+              </ResponsiveContainer>
             </div>
-            <div style={{display:"flex",gap:20,marginTop:14,flexWrap:"wrap"}}>
-              <div><p className="mono" style={{color:P.muted,fontSize:7,marginBottom:4}}>TEINTE</p><div style={{display:"flex",gap:4,alignItems:"center"}}><div style={{width:40,height:8,background:"linear-gradient(90deg,hsl(200,70%,48%),hsl(0,70%,48%)"}}/>  <span className="mono" style={{fontSize:7,color:P.muted}}>safe → audacieux</span></div></div>
-              <div><p className="mono" style={{color:P.muted,fontSize:7,marginBottom:4}}>SATURATION</p><div style={{display:"flex",gap:4,alignItems:"center"}}><div style={{width:40,height:8,background:"linear-gradient(90deg,hsl(100,40%,48%),hsl(100,100%,48%)"}}/>  <span className="mono" style={{fontSize:7,color:P.muted}}>constant → imprévisible</span></div></div>
-              <div><p className="mono" style={{color:P.muted,fontSize:7,marginBottom:4}}>LUMINOSITÉ</p><div style={{display:"flex",gap:4,alignItems:"center"}}><div style={{width:40,height:8,background:"linear-gradient(90deg,hsl(100,70%,30%),hsl(100,70%,65%)"}}/>  <span className="mono" style={{fontSize:7,color:P.muted}}>sous-perf → surperf</span></div></div>
-              <div><p className="mono" style={{color:P.muted,fontSize:7,marginBottom:4}}>TAILLE</p><span className="mono" style={{fontSize:7,color:P.muted}}>points marqués</span></div>
-            </div>
-          </div>;
-        })()}
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+            {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focusedR.indexOf(p.name)>=0,on=focusedR.length===0||iF;return<button key={p.name} onClick={function(){setFocusedR(function(prev){return prev.indexOf(p.name)>=0?prev.filter(function(x){return x!==p.name;}):prev.concat([p.name]);});}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:col}}/><span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span></button>;})}
+            {focusedR.length>0&&<button onClick={function(){setFocusedR([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
+          </div>
+        </div>}
 
         {/* PODIUM */}
         {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
