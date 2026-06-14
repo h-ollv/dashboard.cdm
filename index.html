@@ -775,39 +775,8 @@ Object.keys(pronoCounts).forEach(function(k){
 </div>
 
 {p.boosters>0?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:48,flexShrink:0}}/>}
-
-<div style={{
-  display:"flex",
-  alignItems:"center",
-  justifyContent:"flex-end",
-  gap:4,
-  width:78,
-  flexShrink:0
-}}>
-  <span
-    className="mono"
-    style={{
-      color:last?"#C09090":P.text,
-      fontSize:13,
-      fontWeight:700
-    }}
-  >
-    {p.points}
-  </span>
-
-  {p.lastMatchGain>0 && (
-    <span
-      className="mono"
-      style={{
-        color:P.muted,
-        fontSize:8,
-        fontWeight:400
-      }}
-    >
-      +{p.lastMatchGain}
-    </span>
-  )}
-</div>
+<span className="mono" style={{color:last?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
+<span className="mono" style={{color:"#A8C490",fontSize:8,width:28,textAlign:"left",flexShrink:0,paddingLeft:4}}>{p.lastMatchGain>0?"+"+p.lastMatchGain:""}</span>
               </div>;
             })}
           </div>
