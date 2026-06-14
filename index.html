@@ -163,7 +163,7 @@ function toVX(a){
   return 50+((a-25)/75)*50;
 }
   
-function computeRisk(matches){
+function computeRisk(matches,socialMap){
   var aSum=0,aCnt=0;
 
   var weighted=0;
@@ -182,8 +182,32 @@ function computeRisk(matches){
 
     aps.push(ap.a);
 
-    aSum+=ap.a;
-    aCnt++;
+    var key=(m.match||'')+'|'+(m.date||'');
+
+var total=0;
+var same=0;
+
+if(socialMap[key]){
+
+  Object.values(socialMap[key]).forEach(function(v){
+    total+=v;
+  });
+
+  same=socialMap[key][m.prono]||0;
+}
+
+var socialAudace=50;
+
+if(total>0){
+  socialAudace=(1-(same/total))*100;
+}
+
+var finalAudace=
+  ap.a*0.6+
+  socialAudace*0.4;
+
+aSum+=finalAudace;
+aCnt++;
 
     if(ap.p<=0.30) globalBuckets.low++;
     else if(ap.p<=0.65) globalBuckets.mid++;
@@ -261,6 +285,28 @@ window.__loadAllData=function(){
       if(p.name) pData[norm(p.name)]=p.matches;
     });
 
+    var socialMap={};
+
+Object.values(pData).forEach(function(matches){
+
+  matches.forEach(function(m){
+
+    if(!m.prono || m.prono==='...') return;
+
+    var key=(m.match||'')+'|'+(m.date||'');
+
+    if(!socialMap[key])
+      socialMap[key]={};
+
+    if(!socialMap[key][m.prono])
+      socialMap[key][m.prono]=0;
+
+    socialMap[key][m.prono]++;
+
+  });
+
+});
+
     var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
     var refM=pData[refKey]||[];
 
@@ -318,7 +364,7 @@ function cumPtsMatch(matches,n){
       var matches=pData[norm(e.name)]||[];
       var total_points=e.points||0;
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
-      var risk=computeRisk(matches);
+      var risk=computeRisk(matches,socialMap);
       var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
 
 var playedM=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';}).sort(function(a,b){return (a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0);});
