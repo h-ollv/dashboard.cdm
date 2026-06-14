@@ -584,6 +584,7 @@ Object.keys(pronoCounts).forEach(function(k){
     var _ti=useState(null),topImprobable=_ti[0],setTopImprobable=_ti[1];
     var _dv=useState([]),divergentData=_dv[0],setDV=_dv[1];
     var _pg=useState('Poule A'),filterPoule=_pg[0],setFilterPoule=_pg[1];
+    var _sj=useState(null),selectedJournee=_sj[0],setSelectedJournee=_sj[1];
 
     useEffect(function(){
       window.__loadAllData().then(function(r){
