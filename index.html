@@ -75,7 +75,7 @@ function parsePlayerSheet(rows){
   if(typeof name==='string'&&name.indexOf('Joueur :')===0) name=name.replace('Joueur :','').trim();
   if(name==='Hugo.O') name='Hugo O.';
   var matches=[],block=[],curPoule=null;
-  function flush(){
+  function flush(pouleLabel){
     if(!block.length) return;
     var teams={};
     block.forEach(function(r){
@@ -94,7 +94,7 @@ function parsePlayerSheet(rows){
       var correct     = played&&prono!==''&&prono!=='...'&&prono===vainqueur;
       var booster_pts = boosterOui==='oui'?50:0;
       matches.push({
-        poule:curPoule, date:r[3]||null, match:rencontre,
+        poule:pouleLabel, date:r[3]||null, match:rencontre,
         team_a:teams[parts[0]]||null, team_a_n:teams[parts[0]]?norm(teams[parts[0]]):null,
         team_b:teams[parts[1]]||null, team_b_n:teams[parts[1]]?norm(teams[parts[1]]):null,
         prono:prono, scorePred:scorePred,
@@ -109,7 +109,7 @@ function parsePlayerSheet(rows){
   }
   for(var i=5;i<rows.length;i++){
     var rw=rows[i]||[];
-    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){flush();block=[];curPoule=rw[0];continue;}
+    if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){var prevPoule=curPoule;flush(prevPoule);block=[];curPoule=rw[0];continue;}
     block.push(rw);
   }
   flush();
