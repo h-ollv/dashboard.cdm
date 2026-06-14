@@ -513,7 +513,14 @@ Object.keys(pronoCounts).forEach(function(k){
     },[]);
 
     function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
-    var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
+    var TT={
+  background:P.card,
+  border:"1px solid "+P.line,
+  fontFamily:"'Space Mono',monospace",
+  fontSize:10,
+  color:P.text,
+  padding:"10px 14px"
+};
     var SCAT=players.filter(function(p){return p.audace!==null;}).map(function(p,i){
   var vx=toVX(p.audace);
   var jx=((i*7+3)%5)*1.5-3;
@@ -786,7 +793,7 @@ Object.keys(pronoCounts).forEach(function(k){
             :<div>
               <ResponsiveContainer width="100%" height={340}>
                 <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
-                  <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
+                  <CartesianGrid stroke={P.line} strokeOpacity={0.6}/>
                   <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
                   <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
                   <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
