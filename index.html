@@ -117,74 +117,45 @@ function parsePlayerSheet(rows){
 }
 
 function getAP(m){
-  var prono = m.prono;
-  if(!prono || prono === '...') return null;
+  var prono=m.prono;
+  if(!prono||prono==='...') return null;
 
-  var cote = (m.cote || '').toLowerCase().trim();
-  if(!cote || cote === '...') return null;
+  var cote=(m.cote||'').toLowerCase().trim();
+  if(!cote||cote==='...') return null;
 
-  var ASCORE = {'-3':100,'-2':80,'-1':60,'0':35,'1':15,'2':5,'3':0};
-  var PSCORE = {'-3':0.10,'-2':0.20,'-1':0.35,'0':0.50,'1':0.62,'2':0.72,'3':0.82};
+  var ASCORE={'-3':100,'-2':75,'-1':50,'0':25,'1':10,'2':5,'3':0};
+  var PSCORE={'-3':0.10,'-2':0.20,'-1':0.35,'0':0.50,'1':0.62,'2':0.72,'3':0.82};
 
   function ap(diff){
-    var k = String(Math.max(-3, Math.min(3, diff)));
-    return { a: ASCORE[k] || 0, p: PSCORE[k] || 0.5 };
+    var k=String(Math.max(-3,Math.min(3,diff)));
+    return{a:ASCORE[k]||0,p:PSCORE[k]||0.50};
   }
 
-  var cp = cote.split('-').map(Number);
-  if(cp.length !== 2 || isNaN(cp[0]) || isNaN(cp[1])) return null;
+  if(prono.toUpperCase()==='N'){
+    if(cote==='nul') return{a:0,p:0.26};
+    var np=cote.split('-').map(Number);
+    if(np.length===2&&!isNaN(np[0])&&!isNaN(np[1])){
+      var d=Math.abs(np[1]-np[0]);
+      if(d<=1) return{a:0,p:0.26};
+      if(d===2) return{a:20,p:0.18};
+      return{a:35,p:0.12};
+    }
+    return{a:20,p:0.18};
+  }
 
-  var pts = m.match.split(' vs ').map(s => s.trim());
+  if(cote==='nul') return{a:25,p:0.50};
+
+  var cp=cote.split('-').map(Number);
+  if(cp.length!==2||isNaN(cp[0])||isNaN(cp[1])) return null;
+
+  var pts=m.match.split(' vs ').map(function(s){return s.trim();});
 
   var diff;
-  if(prono === pts[0]) diff = cp[1] - cp[0];
-  else if(prono === pts[1]) diff = cp[0] - cp[1];
-  else if(prono.toUpperCase() === 'N') diff = 0;
+  if(prono===pts[0])      diff=cp[1]-cp[0];
+  else if(prono===pts[1]) diff=cp[0]-cp[1];
   else return null;
 
-  var base = ap(diff);
-  // =========================
-// NORMALISATION PAR MATCH
-// =========================
-var share = m._voteShare != null ? m._voteShare : 1;
-var entropyFactor = 1 - Math.abs(0.5 - share) * 2; 
-// 1 = match équilibré, 0 = écrasé
-
-var matchIntensity = 0.6 + entropyFactor * 0.8;
-  // =========================
-  // 1. RARETE SOCIALE (CRITIQUE)
-  // =========================
-  var share = m._voteShare != null ? m._voteShare : 1;
-
-  // rareté NON linéaire (cœur du système)
-  var socialRisk = Math.pow(1 / Math.max(share, 0.02), 1.35);
-
-  // compression pour éviter explosion
-  socialRisk = Math.min(70, (socialRisk - 1) * 14);
-
-  // =========================
-  // 2. RISQUE COTE (structurel)
-  // =========================
-  var oddsRisk = Math.abs(diff) * 6;
-
-  // =========================
-  // 3. BONUS UPSERT (qualitatif)
-  // =========================
-  var upsetBonus = (Math.abs(diff) >= 2 ? 10 : 0);
-
-  // =========================
-  // SCORE FINAL AUDACE
-  // =========================
-  base.a =
-  (0.45 * base.a +
-   0.40 * socialRisk +
-   0.15 * oddsRisk +
-   upsetBonus)
-  * matchIntensity;
-
-  base.a = Math.max(0, Math.min(100, base.a));
-
-  return base;
+  return ap(diff);
 }
 
 function toVX(a){
@@ -193,15 +164,37 @@ function toVX(a){
 }
   
 function computeRisk(matches){
-  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
+  var aSum=0,aCnt=0;
+
+  var weighted=0;
+  var wSum=0;
+
+  var actS=0,expS=0,pCnt=0;
+
+  // distribution globale pour rareté relative
+  var globalBuckets = {low:0,mid:0,high:0};
+
+  var aps=[];
 
   matches.forEach(function(m){
-    var ap = getAP(m);
+    var ap=getAP(m);
     if(!ap) return;
 
-    // AUDACE : on garde la valeur réelle (important)
-    aSum += ap.a;
+    aps.push(ap.a);
+
+    aSum+=ap.a;
     aCnt++;
+
+    if(ap.p<=0.30) globalBuckets.low++;
+    else if(ap.p<=0.65) globalBuckets.mid++;
+    else globalBuckets.high++;
+
+    // --- pondération rareté (clé du modèle) ---
+    var rarity = 1 / Math.max(0.12, ap.p);
+    var weight = Math.pow(rarity, 1.35);
+
+    weighted += ap.a * weight;
+    wSum += weight;
 
     if(m.played){
       actS += m.correct ? 1 : 0;
@@ -210,21 +203,41 @@ function computeRisk(matches){
     }
   });
 
-  // AUDACE = moyenne normalisée (0-100 déjà implicite dans ap.a)
-  var audace = aCnt ? (aSum / aCnt) : 50;
+  var rawAudace = aCnt ? aSum/aCnt : 50;
+  var weightedAudace = wSum ? weighted/wSum : rawAudace;
 
-  // ADJR brut
+  // bonus "exploit isolé"
+  var variance = 0;
+  if(aps.length){
+    var mean = rawAudace;
+    aps.forEach(function(v){ variance += Math.pow(v-mean,2); });
+    variance = Math.sqrt(variance/aps.length);
+  }
+
+  // normalisation rareté groupe
+  var total = globalBuckets.low + globalBuckets.mid + globalBuckets.high;
+  var diversityBonus = total
+    ? (globalBuckets.low - globalBuckets.high) / total * 20
+    : 0;
+
+  var audace =
+    0.50 * weightedAudace +
+    0.30 * rawAudace +
+    0.20 * (50 + variance) +
+    diversityBonus;
+
+  audace = Math.max(0, Math.min(100, audace));
+
+  // performance inchangée
   var rawAdjR = 0;
   if(pCnt){
     rawAdjR = ((actS / pCnt) - (expS / pCnt)) * 100;
   }
 
-  // shrink léger (stabilité sans écraser early game)
   var shrinkAdjR =
     ((actS + 1) / (pCnt + 2) - expS / Math.max(1,pCnt)) * 100;
 
   var w = Math.min(1, pCnt / 5);
-
   var adjR = rawAdjR * w + shrinkAdjR * (1 - w);
 
   adjR = Math.max(-85, Math.min(85, adjR));
