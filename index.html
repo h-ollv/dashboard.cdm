@@ -830,10 +830,35 @@ Object.keys(pronoCounts).forEach(function(k){
         {tab==="Progression"&&<div style={{background:P.card,padding:"18px 22px"}}>
           <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
           {journeeInfo.length>0&&<div style={{marginBottom:12}}>
-            <select onChange={function(e){var info=journeeInfo.find(function(j){return j.leader===e.target.value;});if(info)setFocused([info.leader]);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
-              <option value="">Leader par journée…</option>
-              {journeeInfo.map(function(info){return<option key={info.label} value={info.leader}>{info.label} — {info.leader} ({info.pts} pts)</option>;})}
+            <select onChange={function(e){setSelectedJournee(e.target.value||null);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
+              <option value="">Classement par journée…</option>
+              {journeeInfo.map(function(info){return<option key={info.label} value={info.label}>{info.label} — leader : {info.leader} ({info.pts} pts)</option>;})}
             </select>
+            {selectedJournee&&(function(){
+              var info=journeeInfo.find(function(j){return j.label===selectedJournee;});
+              if(!info) return null;
+              var d=progDts.find(function(raw){var iP=raw.indexOf('__p')>=0,dd=iP?raw.replace('__p',''):raw; return "J"+(progDts.indexOf(raw)+1)+(iP?" (en cours)":"")===selectedJournee;});
+              if(!d) return null;
+              var iP=d.indexOf('__p')>=0,date=iP?d.replace('__p',''):d;
+              var pts={};
+              players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=date?m.points:0);},0);});
+              var ranked=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
+              return<div style={{border:"1px solid "+P.line,padding:"10px 14px",marginTop:8}}>
+                <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:8}}>{selectedJournee.toUpperCase()} — CLASSEMENT</p>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {ranked.map(function(p,i){
+                    var idx=players.indexOf(p);
+                    return<div key={p.name} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span className="mono" style={{color:P.muted,fontSize:8,width:20,flexShrink:0}}>{String(i+1).padStart(2,'0')}</span>
+                      <div style={{width:5,height:5,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
+                      <span className="serif" style={{fontSize:13,flex:1,color:P.text}}>{p.name}</span>
+                      <span className="mono" style={{fontSize:11,fontWeight:700,color:P.text}}>{pts[p.name]}</span>
+                      <span className="mono" style={{fontSize:7,color:P.muted}}>pts</span>
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            })()}
           </div>}
           {progData.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible.</p>
             :<div>
