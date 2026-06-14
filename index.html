@@ -161,15 +161,59 @@ function toVX(a){
 }
   
 function computeRisk(matches){
-  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0;
+
+  var aSum=0,aCnt=0;
+  var audSum=0,audCnt=0;
+
+  var actS=0,expS=0,pCnt=0;
+
   matches.forEach(function(m){
-    var ap=getAP(m);if(!ap)return;
-    aSum+=ap.a;aCnt++;
-    if(m.played){actS+=m.correct?1:0;expS+=ap.p;pCnt++;}
+
+    var ap=getAP(m);
+    if(!ap)return;
+
+    aSum+=ap.a;
+    aCnt++;
+
+    if(ap.a>=60){
+      audSum+=ap.a;
+      audCnt++;
+    }
+
+    if(m.played){
+      actS+=m.correct?1:0;
+      expS+=ap.p;
+      pCnt++;
+    }
+
   });
+
+  var avgAudace=aCnt>0 ? aSum/aCnt : 50;
+
+  var avgAudacieux=
+    audCnt>0
+      ? audSum/audCnt
+      : avgAudace;
+
+  var finalAudace=Math.round(
+    Math.min(
+      100,
+      avgAudace*0.75 + avgAudacieux*0.25
+    )
+  );
+
+  var rawAdjR=
+    pCnt>0
+      ? clamp((actS/pCnt-expS/pCnt)*100,-85,52)
+      : 0;
+
+  var adjR=Math.round(
+    rawAdjR*Math.min(1,pCnt/10)
+  );
+
   return{
-    audace:aCnt>0?Math.round(aSum/aCnt):50,
-    adjR:pCnt>0?Math.round(clamp((actS/pCnt-expS/pCnt)*100,-85,52)):0
+    audace:finalAudace,
+    adjR:adjR
   };
 }
 
