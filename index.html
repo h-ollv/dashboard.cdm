@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -371,6 +372,7 @@ Object.keys(pronoCounts).forEach(function(k){
     var _tp=useState(null),topProno=_tp[0],setTopProno=_tp[1];
     var _ti=useState(null),topImprobable=_ti[0],setTopImprobable=_ti[1];
     var _dv=useState([]),divergentData=_dv[0],setDV=_dv[1];
+    var _pg=useState(''),filterPoule=_pg[0],setFilterPoule=_pg[1];
 
     useEffect(function(){
       window.__loadAllData().then(function(r){
@@ -584,22 +586,30 @@ Object.keys(pronoCounts).forEach(function(k){
           {divergentData.length>0&&<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
             <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:14}}>PRONOS PAR MATCH</p>
             {(function(){
+  var poules=Object.keys((function(){var b={};divergentData.forEach(function(v){if(v.poule&&v.poule!=='null')b[v.poule]=true;});return b;})()).sort();
+  return<div style={{marginBottom:12}}>
+    <select className="mono" onChange={function(e){setFilterPoule(e.target.value||null);}} style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
+      {poules.map(function(p){return<option key={p} value={p}>{p}</option>;})}
+    </select>
+  </div>;
+})()}
+            {(function(){
               var byPoule={};
-              divergentData.forEach(function(v){if(!byPoule[v.poule])byPoule[v.poule]=[];byPoule[v.poule].push(v);});
-              var T=players.length||28;
-              return Object.keys(byPoule).sort().map(function(poule){
-                return<div key={poule} style={{marginBottom:18}}>
+             divergentData.filter(function(v){return !filterPoule||v.poule===filterPoule;}).forEach(function(v){if(!byPoule[v.poule])byPoule[v.poule]=[];byPoule[v.poule].push(v);});
+              
+return Object.keys(byPoule).filter(function(p){return p&&p!==null&&p!=='null'&&p!=='undefined';}).sort().map(function(poule){                return<div key={poule} style={{marginBottom:18}}>
                   <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:8,borderBottom:"1px solid "+P.line,paddingBottom:4}}>{poule}</p>
                   {byPoule[poule].map(function(v){
+  var T=v.a+v.n+v.b||1;
                     var pctA=Math.round(v.a/T*100),pctB=Math.round(v.b/T*100),pctN=Math.round(v.n/T*100);
                     var parts=v.match.split(' vs ').map(function(s){return s.trim();});
                     var winA=v.vainqueur===parts[0],winB=v.vainqueur===parts[1];
-                    return<div key={v.match} style={{display:"grid",gridTemplateColumns:"90px 1fr 36px 1fr 90px",gap:4,alignItems:"center",marginBottom:6}}>
-                      <p className="mono" style={{fontSize:8,color:winA?"#A8C490":P.text,fontWeight:winA?700:400,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.team_a} {pctA}%</p>
+                    return<div key={v.match} style={{display:"grid",gridTemplateColumns:"1fr 80px 30px 80px 1fr",gap:4,alignItems:"center",marginBottom:6}}>
+                      <p className="mono" style={{fontSize:8,color:winA?"#A8C490":P.text,fontWeight:winA?700:400,textAlign:"right",}}>{v.team_a} {pctA}%</p>
                       <div style={{display:"flex",justifyContent:"flex-end"}}><div style={{width:pctA+"%",height:16,background:winA?"#A8C490":"#C8A0C4",borderRadius:"2px 0 0 2px",minWidth:2}}/></div>
                       <p className="mono" style={{fontSize:7,color:P.muted,textAlign:"center",lineHeight:1.3}}>{pctN}%<br/>nul</p>
                       <div><div style={{width:pctB+"%",height:16,background:winB?"#A8C490":"#E8A098",borderRadius:"0 2px 2px 0",minWidth:2}}/></div>
-                      <p className="mono" style={{fontSize:8,color:winB?"#A8C490":P.text,fontWeight:winB?700:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pctB}% {v.team_b}</p>
+                      <p className="mono" style={{fontSize:8,color:winB?"#A8C490":P.text,fontWeight:winB?700:400,textAlign:"left",}}>{pctB}% {v.team_b}</p>
                     </div>;
                   })}
                 </div>;
