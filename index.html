@@ -613,37 +613,9 @@ Object.keys(pronoCounts).forEach(function(k){
     var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
     var SCAT=players.filter(function(p){return p.audace!==null;}).map(function(p,i){
 
-  var vx=toVX(p.audace);
 
-  var jx=((i*7+3)%5)*1.5-3;
-  var jy=((i*11+5)%7)*1.2-3.6;
-
-  var x=vx<50
-    ? Math.min(vx+jx,48.5)
-    : Math.max(vx+jx,51.5);
-
-  var y=p.adjR<=0
-    ? Math.min(p.adjR+jy,-0.5)
-    : Math.max(p.adjR+jy,0.5);
-
-  return{
-    name:p.name,
-    rank:p.rank,
-    audace:p.audace,
-    adjR:p.adjR,
-    vol:p.vol||0,
-    correct:p.correct,
-    x:x,
-    y:y
-  };
-});
-  var vx=toVX(p.audace);
-  var jx=((i*7+3)%5)*1.5-3;
-  var jy=((i*11+5)%7)*1.2-3.6;
-  var x=vx<50?Math.min(vx+jx,48.5):Math.max(vx+jx,51.5);
-  var y=p.adjR<=0?Math.min(p.adjR+jy,-0.5):Math.max(p.adjR+jy,0.5);
-  return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:x,y:y};
-});
+  
+ 
     var P0=players[0]||{name:'—',points:0};
     var bE=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
 
@@ -946,7 +918,10 @@ Object.keys(pronoCounts).forEach(function(k){
     <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
   </div>;
 }}/>
-                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g>var r =
+                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;var r=4+((p.payload.vol||0)/100)*8;
+
+return(
+  <g>
   4 +
   ((p.payload.vol||0)/100)*8;
 
