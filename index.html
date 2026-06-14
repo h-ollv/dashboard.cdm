@@ -1,3 +1,7 @@
+
+
+
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -853,7 +857,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
                   <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
                   <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
-                  <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
                   <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
                   {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="linear" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
                     var fp=players.find(function(p){return p.name===focused[0];});
