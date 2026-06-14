@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -449,54 +450,17 @@ Object.keys(pronoCounts).forEach(function(k){
   var CartesianGrid=Recharts.CartesianGrid,Tooltip=Recharts.Tooltip;
   var ResponsiveContainer=Recharts.ResponsiveContainer;
 
-  var P = {
-  bg: "#F7F4EF",
-  card: "#FDFCF9",
-  text: "#0D0D0C",
-  muted: "#9C9A97",
-  line: "#E0DED8"
-};
+  var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
-  var ZONES = [
-  {
-    key:"platdupied",
-    label:"PLAT DU PIED",
-    sub:"Prudent · surperforme",
-    gradient:"linear-gradient(90deg, #FE81E4 50%, #90E6FF 100%)",
-    x1:-10,x2:50,y1:0,y2:55,
-    corner:{top:28,left:52},
-    align:"left"
-  },
-  {
-    key:"genie",
-    label:"GÉNIE",
-    sub:"Audacieux · surperforme",
-    gradient:"linear-gradient(90deg, #FFDF6B 50%, #FE7503 100%)",
-    x1:50,x2:110,y1:0,y2:55,
-    corner:{top:28,right:52},
-    align:"right"
-  },
-  {
-    key:"timberland",
-    label:"TIMBERLAND",
-    sub:"Prudent · sous-performe",
-    gradient:"linear-gradient(90deg, #FE2B2B 50%, #FE81E4 100%)",
-    x1:-10,x2:50,y1:-85,y2:0,
-    corner:{bottom:40,left:52},
-    align:"left"
-  },
-  {
-    key:"foudubas",
-    label:"FOU DU BUS",
-    sub:"Audacieux · sous-performe",
-    gradient:"linear-gradient(90deg, #FFDF6B 0%, #C1F57E 50%)",
-    x1:50,x2:110,y1:-85,y2:0,
-    corner:{bottom:40,right:52},
-    align:"right"
-  }
-];
+  var ZONES=[
+    {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
+    {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
+    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
+    {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
+  ];
   function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
+  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
   function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
   function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cr size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cr size={8}/></div>;}
@@ -544,14 +508,7 @@ Object.keys(pronoCounts).forEach(function(k){
     },[]);
 
     function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
-    var TT={
-  background:P.card,
-  border:"1px solid "+P.line,
-  fontFamily:"'Space Mono',monospace",
-  fontSize:10,
-  color:P.text,
-  padding:"10px 14px"
-};
+    var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
     var SCAT=players.filter(function(p){return p.audace!==null;}).map(function(p,i){
   var vx=toVX(p.audace);
   var jx=((i*7+3)%5)*1.5-3;
@@ -881,25 +838,8 @@ Object.keys(pronoCounts).forEach(function(k){
     <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
   </div>;
 }}/>
-                  <Scatter
-  data={SCAT}
-  shape={function(p){
-    var on = focusedR.length===0 || focusedR.indexOf(p.payload.name)>=0;
-
-    return (
-      <g>
-        <circle
-          cx={p.cx}
-          cy={p.cy}
-          r={on ? 6 : 3}
-          fill="#0D0D0C"
-          stroke="none"
-          fillOpacity={on ? 0.9 : 0.2}
-        />
-      </g>
-    );
-  }}
-/>
+                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
+                </ScatterChart>
               </ResponsiveContainer>
             </div>
           </div>
