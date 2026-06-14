@@ -74,7 +74,7 @@ function parsePlayerSheet(rows){
   var name=(rows[0]&&rows[0][1])||'';
   if(typeof name==='string'&&name.indexOf('Joueur :')===0) name=name.replace('Joueur :','').trim();
   if(name==='Hugo.O') name='Hugo O.';
-  var matches=[],block=[],curPoule=null;
+  var matches=[],block=[],curPoule=(rows[5]&&rows[5][0])||null;
   function flush(pouleLabel){
     if(!block.length) return;
     var teams={};
