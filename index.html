@@ -460,13 +460,44 @@ Object.keys(pronoCounts).forEach(function(k){
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
-    {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
-    {key:"genie",     label:"GÉNIE",         sub:"Audacieux · surperforme",   c:"#A8C490", x1:50, x2:110,y1:0,  y2:55,  corner:{top:28,right:52},  align:"right"},
-    {key:"timberland",label:"TIMBERLAND",    sub:"Prudent · sous-performe",   c:"#B8C8E0", x1:-10,x2:50, y1:-85,y2:0,   corner:{bottom:40,left:52}, align:"left"},
-    {key:"foudubas",  label:"FOU DU BUS",    sub:"Audacieux · sous-performe", c:"#E8A098", x1:50, x2:110,y1:-85,y2:0,   corner:{bottom:40,right:52},align:"right"}
-  ];
+  {
+    key:"platdupied",
+    label:"PLAT DU PIED",
+    sub:"Prudent · surperforme",
+    gradient:"linear-gradient(135deg,#FE81E4 50%,#90E6FF 100%)",
+    x1:-10,x2:50,y1:0,y2:55,
+    corner:{top:28,left:52},
+    align:"left"
+  },
+  {
+    key:"genie",
+    label:"GÉNIE",
+    sub:"Audacieux · surperforme",
+    gradient:"linear-gradient(135deg,#FFDF6B 50%,#FE7503 100%)",
+    x1:50,x2:110,y1:0,y2:55,
+    corner:{top:28,right:52},
+    align:"right"
+  },
+  {
+    key:"timberland",
+    label:"TIMBERLAND",
+    sub:"Prudent · sous-performe",
+    gradient:"linear-gradient(135deg,#FE2B2B 50%,#FE81E4 100%)",
+    x1:-10,x2:50,y1:-85,y2:0,
+    corner:{bottom:40,left:52},
+    align:"left"
+  },
+  {
+    key:"foudubas",
+    label:"FOU DU BUS",
+    sub:"Audacieux · sous-performe",
+    gradient:"linear-gradient(135deg,#FFDF6B 0%,#C1F57E 50%)",
+    x1:50,x2:110,y1:-85,y2:0,
+    corner:{bottom:40,right:52},
+    align:"right"
+  }
+];
   function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
-  var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
   function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
   function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cr size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cr size={8}/></div>;}
@@ -817,7 +848,7 @@ Object.keys(pronoCounts).forEach(function(k){
                 var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
                 var isTop=z.y1>=0;
                 var pos=Object.assign({position:"absolute"},z.corner);
-                return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"6px 10px",minWidth:90,border:"1px solid "+z.c+(isTop?"":"88"),background:isTop?z.c+"28":P.card+"F0"})}>
+                return<div key={z.key} style={Object.assign({},pos,{   textAlign:z.align,   pointerEvents:"none",   zIndex:2,   padding:"6px 10px",   minWidth:90,   border:"none",   background:z.gradient })}>
                   <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>{z.label}</p>
                   <p className="mono" style={{color:z.c,fontSize:20,fontWeight:700,lineHeight:1}}>{count}</p>
                   <p className="mono" style={{color:z.c,fontSize:7,marginTop:2,opacity:0.8}}>{z.sub}</p>
@@ -825,7 +856,7 @@ Object.keys(pronoCounts).forEach(function(k){
               })}
               <ResponsiveContainer width="100%" height={420}>
                 <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
+                  {ZONES.map(function(z){   return <ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.gradient} fillOpacity={0.18}/>; })}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
                   <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
                   <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
                   <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
@@ -835,7 +866,7 @@ Object.keys(pronoCounts).forEach(function(k){
   var sign=d.adjR>=0?"+":"";
   var zKey=gz({x:d.audace,y:d.adjR});
   var zLabels={platdupied:"PLAT DU PIED",genie:"GÉNIE",timberland:"TIMBERLAND",foudubas:"FOU DU BUS"};
-  var zCol=ZC[zKey];
+  var zCol={   platdupied:"linear-gradient(135deg,#FE81E4 50%,#90E6FF 100%)",   genie:"linear-gradient(135deg,#FFDF6B 50%,#FE7503 100%)",   timberland:"linear-gradient(135deg,#FE2B2B 50%,#FE81E4 100%)",   foudubas:"linear-gradient(135deg,#FFDF6B 0%,#C1F57E 50%)" }[zKey];
   return<div style={Object.assign({},TT)}>
     <p style={{fontWeight:700,marginBottom:4}}>{d.name}</p>
     <p className="mono" style={{color:zCol,fontSize:8,fontWeight:700,letterSpacing:"0.12em",marginBottom:8}}>{zLabels[zKey]}</p>
