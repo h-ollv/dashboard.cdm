@@ -417,8 +417,23 @@ Object.keys(pronoCounts).forEach(function(k){
         topImprobable={player:player.name,score:m.scorePred,betTeam:betTeam,oppTeam:oppTeam,audace:ap.a};
       });
     });
-
-    return{players:out,nMatchs:nMatchsJoues,playedDates:playedDates,completedDates:completedDates,topProno:topProno,topImprobable:topImprobable};
+    var matchVotes={};
+out.forEach(function(player){
+  (player.matches||[]).forEach(function(m){
+    if(!m.played||!m.team_a||!m.team_b) return;
+    var key=m.poule+'|'+m.match;
+    if(!matchVotes[key]) matchVotes[key]={poule:m.poule,match:m.match,team_a:m.team_a,team_b:m.team_b,vainqueur:m.vainqueur,a:0,n:0,b:0};
+    var parts=m.match.split(' vs ').map(function(s){return s.trim();});
+    if(m.prono===parts[0]) matchVotes[key].a++;
+    else if(m.prono===parts[1]) matchVotes[key].b++;
+    else if(m.prono.toUpperCase()==='N') matchVotes[key].n++;
+  });
+});
+var divergentData=Object.values(matchVotes).sort(function(a,b){
+  if(a.poule<b.poule) return -1; if(a.poule>b.poule) return 1;
+  return a.match<b.match?-1:1;
+});
+    return{players:out,nMatchs:nMatchsJoues,playedDates:playedDates,completedDates:completedDates,topProno:topProno,topImprobable:topImprobable,divergentData:divergentData};
   });
 };
 </script>
@@ -430,6 +445,8 @@ Object.keys(pronoCounts).forEach(function(k){
   var XAxis=Recharts.XAxis,YAxis=Recharts.YAxis;
   var CartesianGrid=Recharts.CartesianGrid,Tooltip=Recharts.Tooltip;
   var ResponsiveContainer=Recharts.ResponsiveContainer;
+  var _dv=useState([]),divergentData=_dv[0],setDV=_dv[1];
+  var _pg=useState(''),filterPoule=_pg[0],setFilterPoule=_pg[1];
 
   var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
   var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
@@ -482,6 +499,7 @@ Object.keys(pronoCounts).forEach(function(k){
         s.forEach(function(p,i){p.rank=i+1;});
         setPlayers(s);setNM(r.nMatchs);setPD(r.playedDates||[]);setCD(r.completedDates||[]);
         setTopProno(r.topProno||null);setTopImprobable(r.topImprobable||null);
+        setDV(r.divergentData||[]);
         setLoading(false);
       }).catch(function(e){setError(e.message);setLoading(false);});
     },[]);
@@ -736,6 +754,56 @@ Object.keys(pronoCounts).forEach(function(k){
               contre <span style={{color:P.muted}}>{topImprobable.oppTeam}</span>
             </p>
           </div>}
+        </div>}
+          {divergentData.length>0&&(function(){
+            var poules=[...new Set(divergentData.map(function(v){return v.poule;}).filter(function(p){return p&&p!=='null';}))].sort();
+            if(!filterPoule&&poules.length>0) setTimeout(function(){setFilterPoule(poules[0]);},0);
+            var filtered=divergentData.filter(function(v){return v.poule===filterPoule;});
+            var GOLD="#C9A84C";
+            var BAR=180;
+            return<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700}}>PRONOS PAR MATCH</p>
+                <select className="mono" onChange={function(e){setFilterPoule(e.target.value);}} value={filterPoule||''} style={{fontSize:9,padding:"3px 6px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
+                  {poules.map(function(p){return<option key={p} value={p}>{p.replace('Poule','Groupe')}</option>;})}
+                </select>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {filtered.map(function(v){
+                  var parts=v.match.split(' vs ').map(function(s){return s.trim();});
+                  var winA=v.vainqueur===parts[0],winB=v.vainqueur===parts[1],winN=!winA&&!winB&&v.vainqueur&&v.vainqueur!=='...';
+                  var total=v.a+v.n+v.b||1;
+                  var wA=Math.round(v.a/total*BAR),wN=Math.round(v.n/total*BAR),wB=BAR-wA-wN;
+                  return<div key={v.match} style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:8,alignItems:"center"}}>
+                    <div style={{textAlign:"right"}}>
+                      <span className="serif" style={{fontSize:14,color:winA?GOLD:P.text,fontWeight:winA?600:400}}>{v.team_a}</span>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                      <div style={{display:"flex",width:BAR,height:18}}>
+                        <div style={{width:wA,height:"100%",background:"#C8A0C433",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {wA>16&&<span className="mono" style={{fontSize:7,color:winA?GOLD:P.text,fontWeight:winA?700:400}}>{v.a}</span>}
+                        </div>
+                        <div style={{width:wN,height:"100%",background:"#DDD8D055",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {wN>16&&<span className="mono" style={{fontSize:7,color:winN?GOLD:P.muted}}>{v.n}</span>}
+                        </div>
+                        <div style={{width:wB,height:"100%",background:"#90B8D833",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {wB>16&&<span className="mono" style={{fontSize:7,color:winB?GOLD:P.text,fontWeight:winB?700:400}}>{v.b}</span>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",width:BAR}}>
+                        <span className="mono" style={{width:wA,fontSize:6,color:winA?GOLD:P.muted,textAlign:"center",flexShrink:0}}>{wA<=16?v.a:""}</span>
+                        <span className="mono" style={{width:wN,fontSize:6,color:winN?GOLD:P.muted,textAlign:"center",flexShrink:0}}>{wN<=16&&wN>0?v.n:""}</span>
+                        <span className="mono" style={{width:wB,fontSize:6,color:winB?GOLD:P.muted,textAlign:"center",flexShrink:0}}>{wB<=16?v.b:""}</span>
+                      </div>
+                    </div>
+                    <div style={{textAlign:"left"}}>
+                      <span className="serif" style={{fontSize:14,color:winB?GOLD:P.text,fontWeight:winB?600:400}}>{v.team_b}</span>
+                    </div>
+                  </div>;
+                })}
+              </div>
+            </div>;
+          })()}
         </div>}
 
       </div>
