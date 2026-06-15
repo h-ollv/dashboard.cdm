@@ -643,13 +643,34 @@ Object.keys(pronoCounts).forEach(function(k){
       ? progDts.slice(0,journeeInfo.findIndex(function(j){return j.label===selectedJournee;})+1)
       : progDts;
     var progData=players.length===0?[]:filteredProgDts.map(function(raw,idx){
-      var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
-      var pts={};
-      players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
-      var row={j:"J"+(idx+1)+(iP?" ⏳":"")};
-      players.forEach(function(p){row[p.name]=pts[p.name]||0;});
-      return row;
+
+  var iP=raw.indexOf('__p')>=0;
+  var d=iP?raw.replace('__p',''):raw;
+
+  var pts={};
+
+  players.forEach(function(p){
+    pts[p.name]=(p.matches||[]).reduce(function(s,m){
+      return s+(m.date&&m.date<=d?m.points:0);
+    },0);
+  });
+
+  var ranking=players
+    .slice()
+    .sort(function(a,b){
+      return pts[b.name]-pts[a.name];
     });
+
+  var row={
+    j:"J"+(idx+1)+(iP?" ⏳":"")
+  };
+
+  ranking.forEach(function(p,pos){
+    row[p.name]=pos+1;
+  });
+
+  return row;
+});
 
     var leaderStreak=0;
     if(P0&&P0.name&&P0.name!=='—'){
