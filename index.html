@@ -1,7 +1,3 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -588,6 +584,7 @@ Object.keys(pronoCounts).forEach(function(k){
     var _ti=useState(null),topImprobable=_ti[0],setTopImprobable=_ti[1];
     var _dv=useState([]),divergentData=_dv[0],setDV=_dv[1];
     var _pg=useState('Poule A'),filterPoule=_pg[0],setFilterPoule=_pg[1];
+    var _sj=useState(null),selectedJournee=_sj[0],setSelectedJournee=_sj[1];
 
     useEffect(function(){
       window.__loadAllData().then(function(r){
@@ -621,7 +618,7 @@ Object.keys(pronoCounts).forEach(function(k){
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
       var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
       var row={j:"J"+(idx+1)+(iP?" ⏳":"")};
-      sr.forEach(function(p,i){row[p.name]=i+1;});
+      players.forEach(function(p){row[p.name]=pts[p.name]||0;});
       return row;
     });
 
@@ -833,10 +830,35 @@ Object.keys(pronoCounts).forEach(function(k){
         {tab==="Progression"&&<div style={{background:P.card,padding:"18px 22px"}}>
           <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
           {journeeInfo.length>0&&<div style={{marginBottom:12}}>
-            <select onChange={function(e){var info=journeeInfo.find(function(j){return j.leader===e.target.value;});if(info)setFocused([info.leader]);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
-              <option value="">Leader par journée…</option>
-              {journeeInfo.map(function(info){return<option key={info.label} value={info.leader}>{info.label} — {info.leader} ({info.pts} pts)</option>;})}
+            <select onChange={function(e){setSelectedJournee(e.target.value||null);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
+              <option value="">Classement par journée…</option>
+              {journeeInfo.map(function(info){return<option key={info.label} value={info.label}>{info.label} — leader : {info.leader} ({info.pts} pts)</option>;})}
             </select>
+            {selectedJournee&&(function(){
+              var info=journeeInfo.find(function(j){return j.label===selectedJournee;});
+              if(!info) return null;
+              var d=progDts.find(function(raw){var iP=raw.indexOf('__p')>=0,dd=iP?raw.replace('__p',''):raw; return "J"+(progDts.indexOf(raw)+1)+(iP?" (en cours)":"")===selectedJournee;});
+              if(!d) return null;
+              var iP=d.indexOf('__p')>=0,date=iP?d.replace('__p',''):d;
+              var pts={};
+              players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=date?m.points:0);},0);});
+              var ranked=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
+              return<div style={{border:"1px solid "+P.line,padding:"10px 14px",marginTop:8}}>
+                <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:8}}>{selectedJournee.toUpperCase()} — CLASSEMENT</p>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {ranked.map(function(p,i){
+                    var idx=players.indexOf(p);
+                    return<div key={p.name} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span className="mono" style={{color:P.muted,fontSize:8,width:20,flexShrink:0}}>{String(i+1).padStart(2,'0')}</span>
+                      <div style={{width:5,height:5,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
+                      <span className="serif" style={{fontSize:13,flex:1,color:P.text}}>{p.name}</span>
+                      <span className="mono" style={{fontSize:11,fontWeight:700,color:P.text}}>{pts[p.name]}</span>
+                      <span className="mono" style={{fontSize:7,color:P.muted}}>pts</span>
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            })()}
           </div>}
           {progData.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible.</p>
             :<div>
@@ -844,15 +866,15 @@ Object.keys(pronoCounts).forEach(function(k){
                 <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
                   <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
                   <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
-                  <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
+                  <YAxis tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={TT} formatter={function(v,n){return[v+" pts",n];}}/>
                   {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="linear" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
                     var fp=players.find(function(p){return p.name===focused[0];});
                     if(!fp)return null;
                     var col=WHEEL[players.indexOf(fp)%WHEEL.length];
                     return<Line key="__focusLabel" type="linear" dataKey={fp.name} stroke="transparent" dot={false} isAnimationActive={false} legendType="none"
                       label={function(props){
-                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={400} fill={col}>#{props.value}</text>;
+                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" className="mono" fontSize={14} fontWeight={400} fill={col}>{props.value} pts</text>;
                       }}/>;
                   })()}</LineChart>
               </ResponsiveContainer>
