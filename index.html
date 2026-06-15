@@ -893,13 +893,16 @@ console.log(progData[0]);
   tickLine={false}
 />
                   <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
-                  {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="monotone" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
+                  {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="monotone" dataKey={p.name} stroke={col} strokeWidth={iF ? 2.5 : on ? 1.3 : 0.6}
+strokeOpacity={on ? 1 : 0.12} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
                     var fp=players.find(function(p){return p.name===focused[0];});
                     if(!fp)return null;
                     var col=WHEEL[players.indexOf(fp)%WHEEL.length];
-                    return<Line key="__focusLabel" type="monotone" dataKey={fp.name} stroke="transparent" dot={false} isAnimationActive={false} legendType="none"
+                    return<Line key="__focusLabel" type="natural" dataKey={fp.name} stroke="transparent" isAnimationActive={true}
+animationDuration={600}
+animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive={false} legendType="none"
                       label={function(props){
-                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={400} fill={col}>#{props.value}</text>;
+                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={500} opacity={0.9} fill={col}>#{props.value}</text>;
                       }}/>;
                   })()}</LineChart>
               </ResponsiveContainer>
