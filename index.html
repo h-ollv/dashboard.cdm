@@ -163,6 +163,7 @@ function toVX(a){
   
 function computeRisk(matches,socialMap){
   var aSum=0,aCnt=0;
+var socialSum=0;
 
   var weighted=0;
   var wSum=0;
@@ -205,6 +206,7 @@ var finalAudace=
   socialAudace*0.4;
 
 aSum+=finalAudace;
+socialSum+=socialAudace;
 aCnt++;
 
     if(ap.p<=0.30) globalBuckets.low++;
@@ -265,9 +267,11 @@ aCnt++;
   adjR = Math.max(-85, Math.min(85, adjR));
 
   return {
-    audace: Math.round(audace),
-    adjR: Math.round(adjR)
-  };
+  audace: Math.round(audace),
+  socialAudace: Math.round(aCnt ? socialSum/aCnt : 50),
+  volatility: Math.round(variance),
+  adjR: Math.round(adjR)
+};
 }
 
 window.__loadAllData=function(){
@@ -395,7 +399,10 @@ playedM.forEach(function(m){
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace, adjR:risk.adjR,
+        audace:risk.audace,
+socialAudace:risk.socialAudace,
+volatility:risk.volatility,
+adjR:risk.adjR,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot,
@@ -920,9 +927,41 @@ Object.keys(pronoCounts).forEach(function(k){
     <p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p>
     <p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p>
     <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
+    <p style={{color:P.muted,margin:"3px 0"}}>
+  Audace sociale :
+  <span style={{color:P.text,fontWeight:700}}>
+    {players.find(function(pp){return pp.name===d.name;})?.socialAudace || 0}%
+  </span>
+</p>
+
+<p style={{color:P.muted,margin:"3px 0"}}>
+  Volatilité :
+  <span style={{color:P.text,fontWeight:700}}>
+    {players.find(function(pp){return pp.name===d.name;})?.volatility || 0}
+  </span>
+</p>
   </div>;
 }}/>
-                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
+                  <Scatter
+  data={SCAT}
+  shape={function(p){
+
+    var z=gz(p.payload);
+
+    return(
+      <rect
+        x={p.cx-8}
+        y={p.cy-8}
+        width={16}
+        height={16}
+        fill={ZC[z]}
+        stroke="#fff"
+        strokeWidth={1}
+        rx={2}
+      />
+    );
+  }}
+/>
                 </ScatterChart>
               </ResponsiveContainer>
             </div>
