@@ -1,7 +1,4 @@
 
-
-
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -237,7 +234,6 @@ aCnt++;
     var mean = rawAudace;
     aps.forEach(function(v){ variance += Math.pow(v-mean,2); });
     variance = Math.sqrt(variance/aps.length);
-    var volatility = Math.min(100, variance * 2);
   }
 
   // normalisation rareté groupe
@@ -269,10 +265,9 @@ aCnt++;
   adjR = Math.max(-85, Math.min(85, adjR));
 
   return {
-  audace: Math.round(audace),
-  adjR: Math.round(adjR),
-  vol: Math.round(volatility)
-};
+    audace: Math.round(audace),
+    adjR: Math.round(adjR)
+  };
 }
 
 window.__loadAllData=function(){
@@ -400,9 +395,7 @@ playedM.forEach(function(m){
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace,
-adjR:risk.adjR,
-vol:risk.vol,
+        audace:risk.audace, adjR:risk.adjR,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot,
@@ -546,14 +539,8 @@ Object.keys(pronoCounts).forEach(function(k){
   var CartesianGrid=Recharts.CartesianGrid,Tooltip=Recharts.Tooltip;
   var ResponsiveContainer=Recharts.ResponsiveContainer;
 
-  var P={
-  bg:"#F7F4EF",
-  card:"#FDFCF9",
-  text:"#0D0D0C",
-  muted:"#9C9A97",
-  line:"#E0DED8"
-};
-  var WHEEL=["#F4C4A0","#F4B0A0","#F2A8B8","#EEB8D0","#F0D0A8","#EEE0A0","#C8E8B0","#A8E0C8","#F4B8A8","#F2C8B0","#F0E0B0","#D0EAB8","#B8E8D0","#F4C0B0","#F2D0A8","#EAE8A8","#C0E8B8","#A8DDD0","#F4C8B8","#F0D4B0","#E8E4A8","#C8EAB8","#B0E0CC","#F2BCAC","#F0CCA8","#E4E0A8","#C4E8B8","#ACDEC8"];
+  var P={bg:"#F7F4EF",card:"#FDFCF9",text:"#1A1816",muted:"#8A8480",line:"#DDD8D0"};
+  var WHEEL=["#C8A0C4","#E8A098","#F0C070","#A8C490","#90B8D8","#D4B090","#C0A8D8","#E0B8A0","#A8D0C0","#D8C0A8","#B8C8E0","#E8C8B0","#C4D4A8","#D0B8C8"];
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
@@ -564,7 +551,8 @@ Object.keys(pronoCounts).forEach(function(k){
   function gz(d){var x=d.x!=null?d.x:d.audace,y=d.y!=null?d.y:d.adjR;if(x>=50&&y>0)return"genie";if(x<50&&y>0)return"platdupied";if(x>=50&&y<=0)return"foudubas";return"timberland";}
   var ZC={platdupied:"#C8A0C4",genie:"#A8C490",timberland:"#B8C8E0",foudubas:"#E8A098"};
 
-  function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,borderBottom:"1px solid "+P.line,paddingBottom:10}}><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span></div>;}
+  function Cr(p){var s=p.size||10,c=p.color||P.line;return React.createElement("svg",{width:s,height:s,viewBox:"0 0 10 10",style:{flexShrink:0}},React.createElement("line",{x1:"5",y1:"0",x2:"5",y2:"10",stroke:c,strokeWidth:"1.5"}),React.createElement("line",{x1:"0",y1:"5",x2:"10",y2:"5",stroke:c,strokeWidth:"1.5"}));}
+  function ST(p){return<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><Cr size={8}/><span className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.22em",textTransform:"uppercase"}}>{p.children}</span><div style={{flex:1,borderTop:"1px solid "+P.line}}/><Cr size={8}/></div>;}
 
   function Pod(props){
     var top3=props.data.slice().sort(function(a,b){return b.val-a.val;}).filter(function(d){return d.val>0;}).slice(0,3);
@@ -612,10 +600,13 @@ Object.keys(pronoCounts).forEach(function(k){
     function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
     var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
     var SCAT=players.filter(function(p){return p.audace!==null;}).map(function(p,i){
-
-
-  
- 
+  var vx=toVX(p.audace);
+  var jx=((i*7+3)%5)*1.5-3;
+  var jy=((i*11+5)%7)*1.2-3.6;
+  var x=vx<50?Math.min(vx+jx,48.5):Math.max(vx+jx,51.5);
+  var y=p.adjR<=0?Math.min(p.adjR+jy,-0.5):Math.max(p.adjR+jy,0.5);
+  return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:x,y:y};
+});
     var P0=players[0]||{name:'—',points:0};
     var bE=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
 
@@ -628,7 +619,7 @@ Object.keys(pronoCounts).forEach(function(k){
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
       var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
       var row={j:"J"+(idx+1)+(iP?" ⏳":"")};
-      sr.forEach(function(p,i){row[p.name]=i+1;});
+      players.forEach(function(p){row[p.name]=pts[p.name]||0;});
       return row;
     });
 
@@ -638,18 +629,6 @@ Object.keys(pronoCounts).forEach(function(k){
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
       var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
       return{label:"J"+(idx+1)+(iP?" (en cours)":""),date:d.slice(5),leader:sr[0]?sr[0].name:'—',pts:sr[0]?pts[sr[0].name]:0};
-    });
-
-    var filteredProgDts=selectedJournee
-      ? progDts.slice(0,journeeInfo.findIndex(function(j){return j.label===selectedJournee;})+1)
-      : progDts;
-    var progData=players.length===0?[]:filteredProgDts.map(function(raw,idx){
-      var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
-      var pts={};
-      players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
-      var row={j:"J"+(idx+1)+(iP?" ⏳":"")};
-      players.forEach(function(p){row[p.name]=pts[p.name]||0;});
-      return row;
     });
 
     var leaderStreak=0;
@@ -668,17 +647,16 @@ Object.keys(pronoCounts).forEach(function(k){
     return<div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
       <div style={{maxWidth:820,margin:"0 auto"}}>
 
-        <div style={{paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-          <h1 className="serif" style={{color:P.text,fontSize:38,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Rattepit FC</h1>
-          <div style={{textAlign:"right"}}>
-            <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.18em",textTransform:"uppercase"}}>Coupe du Monde 2026</p>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.12em",marginTop:3}}>Phase de groupes</p>
-          </div>
+        <div style={{textAlign:"center",paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,position:"relative"}}>
+          <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",textTransform:"uppercase",marginBottom:6}}>✦ COUPE DU MONDE 2026 · RATTEPIT FC ✦</p>
+          <h1 className="serif" style={{color:P.text,fontSize:32,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Pronostics Dashboard</h1>
+          <div style={{position:"absolute",top:0,left:0}}><Cr size={10}/></div>
+          <div style={{position:"absolute",top:0,right:0}}><Cr size={10}/></div>
         </div>
 
         <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
           {[
- {l:"LEADER",v:P0.name,sub:P0.points?P0.points+" pts":""},
+ {l:"LEADER",v:P0.name+(P0.points?" · "+P0.points+" pts":"")},
  {l:"MATCHS JOUÉS",v:String(nM)},
  {l:"SÉRIE EN COURS",v:(function(){
     var best=players
@@ -689,7 +667,7 @@ Object.keys(pronoCounts).forEach(function(k){
       ? best.name+" · 🔥"+best.streakHot
       : "Aucune";
  })()}
-].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="serif" style={{color:P.text,fontSize:16,fontWeight:400,lineHeight:1}}>{k.v}</p>{k.sub&&<p className="mono" style={{color:P.muted,fontSize:8,marginTop:2}}>{k.sub}</p>}</div>;})}
+].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="mono" style={{color:P.text,fontSize:11,fontWeight:700}}>{k.v}</p></div>;})}
         </div>
 
         <div style={{display:"flex",marginBottom:20,borderBottom:"1px solid "+P.line}}>
@@ -698,9 +676,10 @@ Object.keys(pronoCounts).forEach(function(k){
 
         {/* CLASSEMENT */}
         {tab==="Classement"&&<div style={{background:P.card,padding:"18px 22px"}}>
+          <ST>{nM} match{nM!==1?"s":""} joué{nM!==1?"s":""}</ST>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             {players.slice(0,3).map(function(p,i){
-              var gs=["linear-gradient(135deg,#F4C4A040,#FDFCF9)","linear-gradient(135deg,#EEE0A040,#FDFCF9)","linear-gradient(135deg,#C8E8B040,#FDFCF9)"];
+              var gs=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
               var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
               return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
                 <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
@@ -712,8 +691,8 @@ Object.keys(pronoCounts).forEach(function(k){
   className="mono"
   style={{
     color:
-      p.delta>0 ? "#7CC47C" :
-      p.delta<0 ? "#E87878" :
+      p.delta>0 ? "#A8C490" :
+      p.delta<0 ? "#E8A098" :
       "#C9A84C",
     fontSize:9
   }}
@@ -733,7 +712,7 @@ Object.keys(pronoCounts).forEach(function(k){
     <p
       className="mono"
       style={{
-        color:P.text,
+        color:"#A8C490",
         fontSize:8,
         fontWeight:700,
         marginTop:3
@@ -750,8 +729,8 @@ Object.keys(pronoCounts).forEach(function(k){
       fontSize:9,
       fontWeight:700,
       padding:"2px 5px",
-      background:"#7CC47C30",
-      color:"#4a8a4a"
+      background:"#A8C49030",
+      color:"#5a7a4a"
     }}>
       🔥{p.streakHot}
     </span>
@@ -763,8 +742,8 @@ Object.keys(pronoCounts).forEach(function(k){
       fontSize:9,
       fontWeight:700,
       padding:"2px 5px",
-      background:"#E8787830",
-      color:"#b05050"
+      background:"#9BB6C930",
+      color:"#3a5a78"
     }}>
       🧊{p.streakCold}
     </span>
@@ -775,7 +754,7 @@ Object.keys(pronoCounts).forEach(function(k){
 </span>
 
   {p.boosters>0&&
-    <span style={{marginLeft:6,background:"linear-gradient(90deg,#F0A8C038,transparent)",padding:"1px 5px"}}>
+    <span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>
       +{p.boosters} boost
     </span>
   }
@@ -786,10 +765,10 @@ Object.keys(pronoCounts).forEach(function(k){
           <div style={{display:"flex",flexDirection:"column"}}>
             {players.slice(3).map(function(p,i){
               var rk=i+4,last=rk>players.length-3,c=WHEEL[rk%WHEEL.length];
-              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F4C8B822":"transparent"}}>
+              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F2DADA22":"transparent"}}>
                 <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
-                <div style={{width:5,height:5,borderRadius:"50%",background:last?"#E89898":c,flexShrink:0}}/>
-                <span className="serif" style={{color:last?"#C07060":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
+                <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
+                <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
                   <span
   className="mono"
@@ -853,9 +832,34 @@ Object.keys(pronoCounts).forEach(function(k){
           <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
           {journeeInfo.length>0&&<div style={{marginBottom:12}}>
             <select onChange={function(e){setSelectedJournee(e.target.value||null);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
-              <option value="">Toutes les journées</option>
+              <option value="">Classement par journée…</option>
               {journeeInfo.map(function(info){return<option key={info.label} value={info.label}>{info.label} — leader : {info.leader} ({info.pts} pts)</option>;})}
             </select>
+            {selectedJournee&&(function(){
+              var info=journeeInfo.find(function(j){return j.label===selectedJournee;});
+              if(!info) return null;
+              var d=progDts.find(function(raw){var iP=raw.indexOf('__p')>=0,dd=iP?raw.replace('__p',''):raw; return "J"+(progDts.indexOf(raw)+1)+(iP?" (en cours)":"")===selectedJournee;});
+              if(!d) return null;
+              var iP=d.indexOf('__p')>=0,date=iP?d.replace('__p',''):d;
+              var pts={};
+              players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=date?m.points:0);},0);});
+              var ranked=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
+              return<div style={{border:"1px solid "+P.line,padding:"10px 14px",marginTop:8}}>
+                <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:8}}>{selectedJournee.toUpperCase()} — CLASSEMENT</p>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {ranked.map(function(p,i){
+                    var idx=players.indexOf(p);
+                    return<div key={p.name} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span className="mono" style={{color:P.muted,fontSize:8,width:20,flexShrink:0}}>{String(i+1).padStart(2,'0')}</span>
+                      <div style={{width:5,height:5,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
+                      <span className="serif" style={{fontSize:13,flex:1,color:P.text}}>{p.name}</span>
+                      <span className="mono" style={{fontSize:11,fontWeight:700,color:P.text}}>{pts[p.name]}</span>
+                      <span className="mono" style={{fontSize:7,color:P.muted}}>pts</span>
+                    </div>;
+                  })}
+                </div>
+              </div>;
+            })()}
           </div>}
           {progData.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible.</p>
             :<div>
@@ -864,14 +868,14 @@ Object.keys(pronoCounts).forEach(function(k){
                   <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
                   <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
                   <YAxis tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
+                  <Tooltip contentStyle={TT} formatter={function(v,n){return[v+" pts",n];}}/>
                   {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="linear" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
                     var fp=players.find(function(p){return p.name===focused[0];});
                     if(!fp)return null;
                     var col=WHEEL[players.indexOf(fp)%WHEEL.length];
                     return<Line key="__focusLabel" type="linear" dataKey={fp.name} stroke="transparent" dot={false} isAnimationActive={false} legendType="none"
                       label={function(props){
-                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={400} fill={col}>#{props.value}</text>;
+                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" className="mono" fontSize={14} fontWeight={400} fill={col}>{props.value} pts</text>;
                       }}/>;
                   })()}</LineChart>
               </ResponsiveContainer>
@@ -918,17 +922,7 @@ Object.keys(pronoCounts).forEach(function(k){
     <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
   </div>;
 }}/>
-                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;var r=4+((p.payload.vol||0)/100)*8;
-
-return(
-  <g>
-  4 +
-  ((p.payload.vol||0)/100)*8;
-
-<circle
-  cx={p.cx}
-  cy={p.cy}
-  r={on ? r : r*0.55} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
+                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
                 </ScatterChart>
               </ResponsiveContainer>
             </div>
@@ -952,7 +946,7 @@ return(
 
   <Pod title="Plus longue série 🧊" color="#9BB6C9" players={players} data={players.map(function(p){return{name:p.name,val:p.maxCold||0};})}/>
 </div>
-          {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
+          {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
             <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS POPULAIRE</p>
             <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
   <span style={{fontWeight:600}}>
@@ -971,12 +965,12 @@ return(
   </span>
 </p>
           </div>}
-          {topImprobable&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
+          {topImprobable&&<div style={{border:"1px solid #E8A09888",padding:"16px 20px",background:"#E8A09808"}}>
+            <p className="mono" style={{color:"#E8A098",fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
             <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
               <span style={{fontWeight:600}}>{topImprobable.player}</span> a parié{' '}
               {topImprobable.score&&topImprobable.score!=='...'&&<span style={{color:P.muted}}>{topImprobable.score} </span>}
-              pour <span style={{fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
+              pour <span style={{color:"#E8A098",fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
               contre <span style={{color:P.muted}}>{topImprobable.oppTeam}</span>
             </p>
           </div>}
@@ -1004,14 +998,14 @@ return(
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                       <div style={{display:"flex",width:BAR,height:20,alignItems:"center"}}>
-                        {v.a>0&&<div style={{flex:v.a,height:"100%",background:winA?"#C9A84C":"#F4C4A0",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:P.text,fontWeight:winA?700:400,lineHeight:1}}>{v.a}</span>
+                        {v.a>0&&<div style={{flex:v.a,height:"100%",background:winA?"#C9A84C99":"#C8A0C488",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
+                          <span className="mono" style={{fontSize:7,color:winA?"#7a5a00":P.text,fontWeight:winA?700:400,lineHeight:1}}>{v.a}</span>
                         </div>}
-                        {v.n>0&&<div style={{flex:v.n,height:"100%",background:"#E8E4D0",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:P.text,lineHeight:1}}>{v.n}</span>
+                        {v.n>0&&<div style={{flex:v.n,height:"100%",background:"#8A848088",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
+                          <span className="mono" style={{fontSize:7,color:winN?"#7a5a00":P.muted,lineHeight:1}}>{v.n}</span>
                         </div>}
-                        {v.b>0&&<div style={{flex:v.b,height:"100%",background:winB?"#C9A84C":"#A8E0C8",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:P.text,fontWeight:winB?700:400,lineHeight:1}}>{v.b}</span>
+                        {v.b>0&&<div style={{flex:v.b,height:"100%",background:winB?"#C9A84C99":"#90B8D888",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
+                          <span className="mono" style={{fontSize:7,color:winB?"#7a5a00":P.text,fontWeight:winB?700:400,lineHeight:1}}>{v.b}</span>
                         </div>}
                       </div>
                     </div>
