@@ -892,22 +892,79 @@ var SCAT=players
           </div>}
           {progData.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible.</p>
             :<div>
-              <ResponsiveContainer width="100%" height={340}>
-                <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
-                  <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
-                  <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
-                  <YAxis tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={TT} formatter={function(v,n){return[v+" pts",n];}}/>
-                  {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="linear" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
-                    var fp=players.find(function(p){return p.name===focused[0];});
-                    if(!fp)return null;
-                    var col=WHEEL[players.indexOf(fp)%WHEEL.length];
-                    return<Line key="__focusLabel" type="linear" dataKey={fp.name} stroke="transparent" dot={false} isAnimationActive={false} legendType="none"
-                      label={function(props){
-                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" className="mono" fontSize={14} fontWeight={400} fill={col}>{props.value} pts</text>;
-                      }}/>;
-                  })()}</LineChart>
-              </ResponsiveContainer>
+              <div
+  style={{
+    display:"grid",
+    gridTemplateColumns:"1fr 1fr",
+    gap:16,
+    marginTop:20
+  }}
+>
+
+{ZONES.map(function(z){
+
+  var joueurs=players.filter(function(p){
+    return gz({x:p.audace,y:p.adjR})===z.key;
+  });
+
+  return(
+    <div
+      key={z.key}
+      style={{
+        border:"1px solid "+z.c,
+        padding:12,
+        minHeight:180
+      }}
+    >
+
+      <p
+        className="mono"
+        style={{
+          color:z.c,
+          fontSize:9,
+          fontWeight:700,
+          marginBottom:12
+        }}
+      >
+        {z.label}
+      </p>
+
+      <div
+        style={{
+          display:"grid",
+          gridTemplateColumns:"repeat(auto-fill,24px)",
+          gap:4
+        }}
+      >
+
+        {joueurs.map(function(p){
+
+          return(
+            <div
+              key={p.name}
+              title={p.name}
+              style={{
+                width:24,
+                height:24,
+                background:ZC[z.key],
+                border:
+                  p.adjR>20
+                    ? "2px solid #C9A84C"
+                    : "1px solid #fff"
+              }}
+            />
+          );
+
+        })}
+
+      </div>
+
+    </div>
+  );
+
+})}
+
+</div>
               <p className="mono" style={{color:P.muted,fontSize:7,margin:"10px 0 8px",letterSpacing:"0.1em"}}>#1 EN HAUT · ⏳ JOURNÉE EN COURS</p>
             </div>}
           <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:12}}>
