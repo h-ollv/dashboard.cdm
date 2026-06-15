@@ -1,4 +1,7 @@
 
+
+
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -163,7 +166,6 @@ function toVX(a){
   
 function computeRisk(matches,socialMap){
   var aSum=0,aCnt=0;
-var socialSum=0;
 
   var weighted=0;
   var wSum=0;
@@ -206,7 +208,6 @@ var finalAudace=
   socialAudace*0.4;
 
 aSum+=finalAudace;
-socialSum+=socialAudace;
 aCnt++;
 
     if(ap.p<=0.30) globalBuckets.low++;
@@ -267,11 +268,9 @@ aCnt++;
   adjR = Math.max(-85, Math.min(85, adjR));
 
   return {
-  audace: Math.round(audace),
-  socialAudace: Math.round(aCnt ? socialSum/aCnt : 50),
-  volatility: Math.round(variance),
-  adjR: Math.round(adjR)
-};
+    audace: Math.round(audace),
+    adjR: Math.round(adjR)
+  };
 }
 
 window.__loadAllData=function(){
@@ -399,10 +398,7 @@ playedM.forEach(function(m){
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace,
-socialAudace:risk.socialAudace,
-volatility:risk.volatility,
-adjR:risk.adjR,
+        audace:risk.audace, adjR:risk.adjR,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot,
@@ -592,7 +588,6 @@ Object.keys(pronoCounts).forEach(function(k){
     var _ti=useState(null),topImprobable=_ti[0],setTopImprobable=_ti[1];
     var _dv=useState([]),divergentData=_dv[0],setDV=_dv[1];
     var _pg=useState('Poule A'),filterPoule=_pg[0],setFilterPoule=_pg[1];
-    var _sj=useState(null),selectedJournee=_sj[0],setSelectedJournee=_sj[1];
 
     useEffect(function(){
       window.__loadAllData().then(function(r){
@@ -606,35 +601,13 @@ Object.keys(pronoCounts).forEach(function(k){
 
     function tog(n){setFocused(function(p){return p.indexOf(n)>=0?p.filter(function(x){return x!==n;}):p.concat([n]);});}
     var TT={background:P.card,border:"1px solid "+P.line,fontFamily:"'Space Mono',monospace",fontSize:10,color:P.text,padding:"10px 14px"};
-    var cellMap={};
-
-var SCAT=players
-.filter(function(p){
-  return p.audace!==null;
-})
-.map(function(p){
-
-  var gx=Math.round(toVX(p.audace)/8)*8;
-  var gy=Math.round(p.adjR/8)*8;
-
-  var key=gx+"|"+gy;
-
-  if(!cellMap[key]){
-    cellMap[key]=0;
-  }
-
-  var stack=cellMap[key]++;
-
-  return{
-    name:p.name,
-    rank:p.rank,
-    audace:p.audace,
-    adjR:p.adjR,
-    correct:p.correct,
-
-    x:gx+(stack%3)*2,
-    y:gy-Math.floor(stack/3)*2
-  };
+    var SCAT=players.filter(function(p){return p.audace!==null;}).map(function(p,i){
+  var vx=toVX(p.audace);
+  var jx=((i*7+3)%5)*1.5-3;
+  var jy=((i*11+5)%7)*1.2-3.6;
+  var x=vx<50?Math.min(vx+jx,48.5):Math.max(vx+jx,51.5);
+  var y=p.adjR<=0?Math.min(p.adjR+jy,-0.5):Math.max(p.adjR+jy,0.5);
+  return{name:p.name,rank:p.rank,audace:p.audace,adjR:p.adjR,correct:p.correct,x:x,y:y};
 });
     var P0=players[0]||{name:'—',points:0};
     var bE=players.length?players.reduce(function(a,b){return(a.exact||0)>(b.exact||0)?a:b;}):({name:'—',exact:0});
@@ -648,7 +621,7 @@ var SCAT=players
       players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=d?m.points:0);},0);});
       var sr=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
       var row={j:"J"+(idx+1)+(iP?" ⏳":"")};
-      players.forEach(function(p){row[p.name]=pts[p.name]||0;});
+      sr.forEach(function(p,i){row[p.name]=i+1;});
       return row;
     });
 
@@ -860,111 +833,29 @@ var SCAT=players
         {tab==="Progression"&&<div style={{background:P.card,padding:"18px 22px"}}>
           <ST>Évolution du rang · par journée · cliquer pour isoler</ST>
           {journeeInfo.length>0&&<div style={{marginBottom:12}}>
-            <select onChange={function(e){setSelectedJournee(e.target.value||null);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
-              <option value="">Classement par journée…</option>
-              {journeeInfo.map(function(info){return<option key={info.label} value={info.label}>{info.label} — leader : {info.leader} ({info.pts} pts)</option>;})}
+            <select onChange={function(e){var info=journeeInfo.find(function(j){return j.leader===e.target.value;});if(info)setFocused([info.leader]);}} className="mono" style={{fontSize:9,padding:"4px 8px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
+              <option value="">Leader par journée…</option>
+              {journeeInfo.map(function(info){return<option key={info.label} value={info.leader}>{info.label} — {info.leader} ({info.pts} pts)</option>;})}
             </select>
-            {selectedJournee&&(function(){
-              var info=journeeInfo.find(function(j){return j.label===selectedJournee;});
-              if(!info) return null;
-              var d=progDts.find(function(raw){var iP=raw.indexOf('__p')>=0,dd=iP?raw.replace('__p',''):raw; return "J"+(progDts.indexOf(raw)+1)+(iP?" (en cours)":"")===selectedJournee;});
-              if(!d) return null;
-              var iP=d.indexOf('__p')>=0,date=iP?d.replace('__p',''):d;
-              var pts={};
-              players.forEach(function(p){pts[p.name]=(p.matches||[]).reduce(function(s,m){return s+(m.date&&m.date<=date?m.points:0);},0);});
-              var ranked=players.slice().sort(function(a,b){return pts[b.name]-pts[a.name];});
-              return<div style={{border:"1px solid "+P.line,padding:"10px 14px",marginTop:8}}>
-                <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:8}}>{selectedJournee.toUpperCase()} — CLASSEMENT</p>
-                <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                  {ranked.map(function(p,i){
-                    var idx=players.indexOf(p);
-                    return<div key={p.name} style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span className="mono" style={{color:P.muted,fontSize:8,width:20,flexShrink:0}}>{String(i+1).padStart(2,'0')}</span>
-                      <div style={{width:5,height:5,borderRadius:"50%",background:WHEEL[idx%WHEEL.length],flexShrink:0}}/>
-                      <span className="serif" style={{fontSize:13,flex:1,color:P.text}}>{p.name}</span>
-                      <span className="mono" style={{fontSize:11,fontWeight:700,color:P.text}}>{pts[p.name]}</span>
-                      <span className="mono" style={{fontSize:7,color:P.muted}}>pts</span>
-                    </div>;
-                  })}
-                </div>
-              </div>;
-            })()}
           </div>}
           {progData.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible.</p>
             :<div>
-              <div
-  style={{
-    display:"grid",
-    gridTemplateColumns:"1fr 1fr",
-    gap:16,
-    marginTop:20
-  }}
->
-
-{ZONES.map(function(z){
-
-  var joueurs=players.filter(function(p){
-    return gz({x:p.audace,y:p.adjR})===z.key;
-  });
-
-  return(
-    <div
-      key={z.key}
-      style={{
-        border:"1px solid "+z.c,
-        padding:12,
-        minHeight:180
-      }}
-    >
-
-      <p
-        className="mono"
-        style={{
-          color:z.c,
-          fontSize:9,
-          fontWeight:700,
-          marginBottom:12
-        }}
-      >
-        {z.label}
-      </p>
-
-      <div
-        style={{
-          display:"grid",
-          gridTemplateColumns:"repeat(auto-fill,24px)",
-          gap:4
-        }}
-      >
-
-        {joueurs.map(function(p){
-
-          return(
-            <div
-              key={p.name}
-              title={p.name}
-              style={{
-                width:24,
-                height:24,
-                background:ZC[z.key],
-                border:
-                  p.adjR>20
-                    ? "2px solid #C9A84C"
-                    : "1px solid #fff"
-              }}
-            />
-          );
-
-        })}
-
-      </div>
-
-    </div>
-  );
-
-})}
-
-</div>
+              <ResponsiveContainer width="100%" height={340}>
+                <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
+                  <CartesianGrid stroke={P.line} strokeOpacity={0.4}/>
+                  <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
+                  <YAxis reversed domain={[1,players.length||28]} tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
+                  {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="linear" dataKey={p.name} stroke={col} strokeWidth={iF?2.5:on?1.2:0.6} strokeOpacity={on?1:0.04} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
+                    var fp=players.find(function(p){return p.name===focused[0];});
+                    if(!fp)return null;
+                    var col=WHEEL[players.indexOf(fp)%WHEEL.length];
+                    return<Line key="__focusLabel" type="linear" dataKey={fp.name} stroke="transparent" dot={false} isAnimationActive={false} legendType="none"
+                      label={function(props){
+                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={400} fill={col}>#{props.value}</text>;
+                      }}/>;
+                  })()}</LineChart>
+              </ResponsiveContainer>
               <p className="mono" style={{color:P.muted,fontSize:7,margin:"10px 0 8px",letterSpacing:"0.1em"}}>#1 EN HAUT · ⏳ JOURNÉE EN COURS</p>
             </div>}
           <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:12}}>
@@ -989,86 +880,10 @@ var SCAT=players
               })}
               <ResponsiveContainer width="100%" height={420}>
                 <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-
-  {ZONES.map(function(z){
-    return(
-      <ReferenceArea
-        key={z.key}
-        x1={z.x1}
-        x2={z.x2}
-        y1={z.y1}
-        y2={z.y2}
-        fill={z.c}
-        fillOpacity={0.10}
-      />
-    );
-  })}
-
-  {[-80,-60,-40,-20,20,40].map(function(v){
-    return(
-      <ReferenceLine
-        key={"h"+v}
-        y={v}
-        stroke="#DDD8D0"
-        strokeOpacity={0.35}
-      />
-    );
-  })}
-
-  {[0,10,20,30,40,50,60,70,80,90,100].map(function(v){
-    return(
-      <ReferenceLine
-        key={"v"+v}
-        x={v}
-        stroke="#DDD8D0"
-        strokeOpacity={0.35}
-      />
-    );
-  })}
-
-  <ReferenceLine
-    x={50}
-    stroke={P.muted}
-    strokeDasharray="4 4"
-    strokeWidth={1}
-  />
-
-  <ReferenceLine
-    y={0}
-    stroke={P.muted}
-    strokeDasharray="3 3"
-    strokeWidth={1.5}
-  />
-
-  <XAxis
-    type="number"
-    dataKey="x"
-    domain={[-10,110]}
-    tick={false}
-    axisLine={{stroke:P.line}}
-    tickLine={false}
-    label={{
-      value:"← PRUDENT   AUDACIEUX →",
-      position:"insideBottom",
-      offset:-18,
-      fontSize:8,
-      fill:P.muted,
-      fontFamily:"'Space Mono',monospace"
-    }}
-  />
-
-  <YAxis
-    type="number"
-    dataKey="y"
-    domain={[-85,52]}
-    tick={false}
-    axisLine={false}
-    tickLine={false}
-  />
-
-  <Tooltip
-    cursor={{stroke:P.line,strokeDasharray:"3 3"}}
-    content={function(p){
+                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
+                  <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
+                  <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
+                  <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
   if(!p.active||!p.payload||!p.payload.length)return null;
   var d=p.payload[0].payload;
   var reussite=nM>0?Math.round(d.correct/nM*100):0;
@@ -1082,41 +897,9 @@ var SCAT=players
     <p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p>
     <p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p>
     <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
-    <p style={{color:P.muted,margin:"3px 0"}}>
-  Audace sociale :
-  <span style={{color:P.text,fontWeight:700}}>
-    {players.find(function(pp){return pp.name===d.name;})?.socialAudace || 0}%
-  </span>
-</p>
-
-<p style={{color:P.muted,margin:"3px 0"}}>
-  Volatilité :
-  <span style={{color:P.text,fontWeight:700}}>
-    {players.find(function(pp){return pp.name===d.name;})?.volatility || 0}
-  </span>
-</p>
   </div>;
 }}/>
-                  <Scatter
-  data={SCAT}
-  shape={function(p){
-
-    var z=gz(p.payload);
-
-    return(
-      <rect
-        x={p.cx-7}
-        y={p.cy-7}
-        width={14}
-        height={14}
-        fill={ZC[z]}
-        stroke="#fff"
-        strokeWidth={1}
-        rx={1}
-      />
-    );
-  }}
-/>
+                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
                 </ScatterChart>
               </ResponsiveContainer>
             </div>
