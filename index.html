@@ -1,7 +1,3 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -549,7 +545,7 @@ Object.keys(pronoCounts).forEach(function(k){
   muted:"#9C9A97",
   line:"#E0DED8"
 };
-  var WHEEL=["#F4A0C8","#E8A0F0","#C4A8F8","#A8B8F8","#A0D8F4","#A0F0E0","#A8F0B8","#C8F0A0","#F0F0A0","#F8D890","#F8B888","#F89898","#F4A8B8","#E0A0E8","#B8A8F8","#98C8F8","#98EEE8","#A8F8CC","#D0F898","#F8F098","#F8CC88","#F8A888","#F89898","#F4A0B0","#E898E0","#C098F8","#98B8F8","#98E8E8"];
+  var WHEEL=["#F4C4A0, #F4B0A0, #F2A8B8, #EEB8D0, #F0D0A8, #EEE0A0, #C8E8B0, #A8E0C8, #F4B8A8, #F2C8B0"];
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
@@ -699,7 +695,7 @@ Object.keys(pronoCounts).forEach(function(k){
         {tab==="Classement"&&<div style={{background:P.card,padding:"18px 22px"}}>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             {players.slice(0,3).map(function(p,i){
-              var gs=["linear-gradient(135deg,#ECA0B828,#FDFCF9)","linear-gradient(135deg,#F0C07028,#FDFCF9)","linear-gradient(135deg,#A8D0C028,#FDFCF9)"];
+              var gs=["linear-gradient(135deg,#F4C4A040,#FDFCF9)","linear-gradient(135deg,#EEE0A040,#FDFCF9)","linear-gradient(135deg,#C8E8B040,#FDFCF9)"];
               var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
               return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
                 <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
@@ -711,8 +707,8 @@ Object.keys(pronoCounts).forEach(function(k){
   className="mono"
   style={{
     color:
-      p.delta>0 ? "#A8C490" :
-      p.delta<0 ? "#E8A098" :
+      p.delta>0 ? "#7CC47C" :
+      p.delta<0 ? "#E87878" :
       "#C9A84C",
     fontSize:9
   }}
@@ -732,7 +728,7 @@ Object.keys(pronoCounts).forEach(function(k){
     <p
       className="mono"
       style={{
-        color:"#A8C490",
+        color:P.text
         fontSize:8,
         fontWeight:700,
         marginTop:3
@@ -749,8 +745,8 @@ Object.keys(pronoCounts).forEach(function(k){
       fontSize:9,
       fontWeight:700,
       padding:"2px 5px",
-      background:"#A8C49030",
-      color:"#5a7a4a"
+      background:"#7CC47C30",
+      color:"#4a8a4a"
     }}>
       🔥{p.streakHot}
     </span>
@@ -762,8 +758,8 @@ Object.keys(pronoCounts).forEach(function(k){
       fontSize:9,
       fontWeight:700,
       padding:"2px 5px",
-      background:"#9BB6C930",
-      color:"#3a5a78"
+      background:"#E8787830",
+      color:"#b05050"
     }}>
       🧊{p.streakCold}
     </span>
@@ -774,7 +770,7 @@ Object.keys(pronoCounts).forEach(function(k){
 </span>
 
   {p.boosters>0&&
-    <span style={{marginLeft:6,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px"}}>
+    <span style={{marginLeft:6,background:"linear-gradient(90deg,#F0A8C038,transparent)",padding:"1px 5px"}}>
       +{p.boosters} boost
     </span>
   }
@@ -785,10 +781,10 @@ Object.keys(pronoCounts).forEach(function(k){
           <div style={{display:"flex",flexDirection:"column"}}>
             {players.slice(3).map(function(p,i){
               var rk=i+4,last=rk>players.length-3,c=WHEEL[rk%WHEEL.length];
-              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F2DADA22":"transparent"}}>
+              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F4C8B822":"transparent"}}>
                 <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
-                <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
-                <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
+                <div style={{width:5,height:5,borderRadius:"50%",background:last?"#E89898":c,flexShrink:0}}/>
+                <span className="serif" style={{color:last?"#C07060":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
                   <span
   className="mono"
@@ -941,7 +937,7 @@ Object.keys(pronoCounts).forEach(function(k){
 
   <Pod title="Plus longue série 🧊" color="#9BB6C9" players={players} data={players.map(function(p){return{name:p.name,val:p.maxCold||0};})}/>
 </div>
-          {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
+          {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
             <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS POPULAIRE</p>
             <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
   <span style={{fontWeight:600}}>
@@ -960,12 +956,12 @@ Object.keys(pronoCounts).forEach(function(k){
   </span>
 </p>
           </div>}
-          {topImprobable&&<div style={{border:"1px solid #E8A09888",padding:"16px 20px",background:"#E8A09808"}}>
-            <p className="mono" style={{color:"#E8A098",fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
+          {topImprobable&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
             <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
               <span style={{fontWeight:600}}>{topImprobable.player}</span> a parié{' '}
               {topImprobable.score&&topImprobable.score!=='...'&&<span style={{color:P.muted}}>{topImprobable.score} </span>}
-              pour <span style={{color:"#E8A098",fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
+              pour <span style={{fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
               contre <span style={{color:P.muted}}>{topImprobable.oppTeam}</span>
             </p>
           </div>}
@@ -993,14 +989,14 @@ Object.keys(pronoCounts).forEach(function(k){
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                       <div style={{display:"flex",width:BAR,height:20,alignItems:"center"}}>
-                        {v.a>0&&<div style={{flex:v.a,height:"100%",background:winA?"#C9A84C99":"#C8A0C488",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:winA?"#7a5a00":P.text,fontWeight:winA?700:400,lineHeight:1}}>{v.a}</span>
+                        {v.a>0&&<div style={{flex:v.a,height:"100%",background:winA?"#C9A84C":"#F4C4A0",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
+                          <span className="mono" style={{fontSize:7,color:P.text,fontWeight:winA?700:400,lineHeight:1}}>{v.a}</span>
                         </div>}
-                        {v.n>0&&<div style={{flex:v.n,height:"100%",background:"#8A848088",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:winN?"#7a5a00":P.muted,lineHeight:1}}>{v.n}</span>
+                        {v.n>0&&<div style={{flex:v.n,height:"100%",background:"#E8E4D0",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
+                          <span className="mono" style={{fontSize:7,color:P.text,lineHeight:1}}>{v.n}</span>
                         </div>}
-                        {v.b>0&&<div style={{flex:v.b,height:"100%",background:winB?"#C9A84C99":"#90B8D888",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
-                          <span className="mono" style={{fontSize:7,color:winB?"#7a5a00":P.text,fontWeight:winB?700:400,lineHeight:1}}>{v.b}</span>
+                        {v.b>0&&<div style={{flex:v.b,height:"100%",background:winB?"#C9A84C":"#A8E0C8",display:"flex",alignItems:"center",justifyContent:"center",minWidth:14,flexShrink:0}}>
+                          <span className="mono" style={{fontSize:7,color:P.text,fontWeight:winB?700:400,lineHeight:1}}>{v.b}</span>
                         </div>}
                       </div>
                     </div>
