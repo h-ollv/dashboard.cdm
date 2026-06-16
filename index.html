@@ -503,6 +503,7 @@ Object.keys(pronoCounts).forEach(function(k){
     out.forEach(function(player){
       (player.matches||[]).forEach(function(m){
         if(!m.prono||m.prono==='...'||m.prono.toUpperCase()==='N') return;
+        if(!m.correct) return;
         var ap=getAP(m);
         if(!ap||ap.a<=topAud) return;
         topAud=ap.a;
@@ -513,18 +514,21 @@ Object.keys(pronoCounts).forEach(function(k){
       });
     });
 
-    var matchVotes={};
-    out.forEach(function(player){
-      (player.matches||[]).forEach(function(m){
-        if(!m.played||!m.team_a||!m.team_b) return;
-        var key=m.poule+'|'+m.match;
-        if(!matchVotes[key]) matchVotes[key]={poule:m.poule,match:m.match,team_a:m.team_a,team_b:m.team_b,vainqueur:m.vainqueur,a:0,n:0,b:0};
-        var parts=m.match.split(' vs ').map(function(s){return s.trim();});
-        if(m.prono===parts[0]) matchVotes[key].a++;
-        else if(m.prono===parts[1]) matchVotes[key].b++;
-        else if(m.prono.toUpperCase()==='N') matchVotes[key].n++;
-      });
-    });
+    var prono=(m.prono||'').toString().trim().toUpperCase();
+
+if(prono===parts[0].toUpperCase()){
+  matchVotes[key].a++;
+}
+else if(prono===parts[1].toUpperCase()){
+  matchVotes[key].b++;
+}
+else if(
+  prono==='N' ||
+  prono==='NUL' ||
+  prono==='MATCH NUL'
+){
+  matchVotes[key].n++;
+}
     var divergentData=Object.values(matchVotes).sort(function(a,b){
       if(a.poule<b.poule) return -1; if(a.poule>b.poule) return 1;
       return a.match<b.match?-1:1;
@@ -967,7 +971,7 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
   
   <Pod title="Scores exacts" color={WHEEL[3]} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
   
-  <Pod title="Les Oublis" color={WHEEL[1]} players={players} data={players.map(function(p){return{name:p.name,val:p.missedPronos||0,unit:" manqué"+(p.missedPronos!==1?"s":"")};})}/>
+  <Pod title="Les Oublis" color={WHEEL[1]} players={players} data={players.map(function(p){return{name:p.name,val:p.missedPronos||0,unit:(p.missedPronos!==1?"s":"")};})}/>
 
   <Pod title="Plus longue série 🔥" color="#A8C490" players={players} data={players.map(function(p){return{name:p.name,val:p.maxHot||0};})}/>
 
