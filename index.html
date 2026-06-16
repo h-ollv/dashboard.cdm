@@ -133,16 +133,26 @@ function getAP(m){
   }
 
   if(prono.toUpperCase()==='N'){
-    if(cote==='nul') return{a:0,p:0.26};
-    var np=cote.split('-').map(Number);
-    if(np.length===2&&!isNaN(np[0])&&!isNaN(np[1])){
-      var d=Math.abs(np[1]-np[0]);
-      if(d<=1) return{a:0,p:0.26};
-      if(d===2) return{a:20,p:0.18};
-      return{a:35,p:0.12};
-    }
-    return{a:20,p:0.18};
+
+  if(cote==='nul')
+    return {a:25,p:0.26};
+
+  var np=cote.split('-').map(Number);
+
+  if(np.length===2&&!isNaN(np[0])&&!isNaN(np[1])){
+
+    var d=Math.abs(np[1]-np[0]);
+
+    if(d<=1) return {a:25,p:0.26};
+    if(d===2) return {a:60,p:0.18};
+    if(d===3) return {a:100,p:0.12};
+    if(d===4) return {a:130,p:0.08};
+
+    return {a:150,p:0.05};
   }
+
+  return {a:60,p:0.18};
+}
 
   if(cote==='nul') return{a:25,p:0.50};
 
