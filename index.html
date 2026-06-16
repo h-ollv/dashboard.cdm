@@ -1022,7 +1022,7 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
   data={players.map(function(p){
     return {
       name:p.name,
-      val:p.boosters||0,
+      val:(p.boosters||0)/50,
       unit:""
     };
   })}
