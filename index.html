@@ -1015,8 +1015,18 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
         {/* PODIUM */}
         {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-  <Pod title="Meilleur boosteur" color={WHEEL[0]} players={players} data={players.map(function(p){return{name:p.name,val:p.boosters||0,unit:" pts"};})}/>
-  
+<Pod
+  title="Meilleur boosteur"
+  color={WHEEL[0]}
+  players={players}
+  data={players.map(function(p){
+    return {
+      name:p.name,
+      val:p.boosters||0,
+      unit:""
+    };
+  })}
+/>  
   <Pod title="Scores exacts" color={WHEEL[3]} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
   
   <Pod title="Les Oublis" color={WHEEL[1]} players={players} data={players.map(function(p){return{name:p.name,val:p.missedPronos||0,unit:(p.missedPronos!==1?"s":"")};})}/>
