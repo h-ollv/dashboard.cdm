@@ -880,12 +880,19 @@ console.log(progData[0]);
                 <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
                   <CartesianGrid vertical={false} stroke="#EAE6DF" />
                   <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
-                  <YAxis width={35}
+                  <YAxis
+  width={35}
   reversed
   domain={[1,players.length]}
   allowDecimals={false}
-  tick={{fill:P.muted,fontSize:10,fontFamily:"'Space Mono',monospace"}}
-tickFormatter={function(v){return "#"+v;}
+  tick={{
+    fill:P.muted,
+    fontSize:10,
+    fontFamily:"'Space Mono',monospace"
+  }}
+  tickFormatter={function(v){
+    return "#"+v;
+  }}
   axisLine={false}
   tickLine={false}
 />
@@ -895,7 +902,7 @@ strokeOpacity={focused.length===0 ? 0.18 : iF ? 1 : 0.02} dot={false} legendType
                     var fp=players.find(function(p){return p.name===focused[0];});
                     if(!fp)return null;
                     var col=WHEEL[players.indexOf(fp)%WHEEL.length];
-                    return<Line key="__focusLabel" type="basis" dataKey={fp.name} stroke="transparent" isAnimationActive={true}
+                    return<Line key="__focusLabel" type="basis" dataKey={fp.name} stroke="transparent"
 animationDuration={600}
 animationEasing="ease-in-out" dot={{r:2}} activeDot={{ r: 3 }} isAnimationActive={false} legendType="none"
                       label={function(props){
