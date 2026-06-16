@@ -1028,8 +1028,6 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
   })}
 />  
   <Pod title="Scores exacts" color={WHEEL[3]} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
-  
-  <Pod title="Les Oublis" color={WHEEL[1]} players={players} data={players.map(function(p){return{name:p.name,val:p.missedPronos||0,unit:(p.missedPronos!==1?"s":"")};})}/>
 
   <Pod title="Plus longue série 🔥" color="#A8C490" players={players} data={players.map(function(p){return{name:p.name,val:p.maxHot||0};})}/>
 
