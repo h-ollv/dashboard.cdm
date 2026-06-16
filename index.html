@@ -164,112 +164,103 @@ function toVX(a){
   return 50+((a-25)/75)*50;
 }
   
-function computeRisk(matches,socialMap){
-  var aSum=0,aCnt=0;
-
-  var weighted=0;
-  var wSum=0;
-
-  var actS=0,expS=0,pCnt=0;
-
-  // distribution globale pour rareté relative
-  var globalBuckets = {low:0,mid:0,high:0};
-
-  var aps=[];
+function computeRisk(matches){
+  var aSum=0,aCnt=0,actS=0,expS=0,pCnt=0,aps=[],weighted=0,wSum=0;
+  var globalBuckets={low:0,mid:0,high:0};
 
   matches.forEach(function(m){
     var ap=getAP(m);
     if(!ap) return;
-
     aps.push(ap.a);
-
-    var key=(m.match||'')+'|'+(m.date||'');
-
-var total=0;
-var same=0;
-
-if(socialMap[key]){
-
-  Object.values(socialMap[key]).forEach(function(v){
-    total+=v;
-  });
-
-  same=socialMap[key][m.prono]||0;
-}
-
-var socialAudace=50;
-
-if(total>0){
-  socialAudace=(1-(same/total))*100;
-}
-
-var finalAudace=
-  ap.a*0.6+
-  socialAudace*0.4;
-
-aSum+=finalAudace;
-aCnt++;
-
+    aSum+=ap.a; aCnt++;
     if(ap.p<=0.30) globalBuckets.low++;
     else if(ap.p<=0.65) globalBuckets.mid++;
     else globalBuckets.high++;
-
-    // --- pondération rareté (clé du modèle) ---
-    var rarity = 1 / Math.max(0.12, ap.p);
-    var weight = Math.pow(rarity, 1.35);
-
-    weighted += ap.a * weight;
-    wSum += weight;
-
-    if(m.played){
-      actS += m.correct ? 1 : 0;
-      expS += ap.p;
-      pCnt++;
-    }
+    var rarity=1/Math.max(0.12,ap.p);
+    var weight=Math.pow(rarity,1.35);
+    weighted+=ap.a*weight; wSum+=weight;
+    if(m.played){ actS+=m.correct?1:0; expS+=ap.p; pCnt++; }
   });
 
-  var rawAudace = aCnt ? aSum/aCnt : 50;
-  var weightedAudace = wSum ? weighted/wSum : rawAudace;
+  var rawAudace=aCnt?aSum/aCnt:50;
+  var weightedAudace=wSum?weighted/wSum:rawAudace;
+  var variance=0;
+  if(aps.length){ var mean=rawAudace; aps.forEach(function(v){variance+=Math.pow(v-mean,2);}); variance=Math.sqrt(variance/aps.length); }
+  var total=globalBuckets.low+globalBuckets.mid+globalBuckets.high;
+  var diversityBonus=total?(globalBuckets.low-globalBuckets.high)/total*20:0;
+  var audaceRaw=0.50*weightedAudace+0.30*rawAudace+0.20*(50+variance)+diversityBonus;
+  audaceRaw=Math.max(0,Math.min(100,audaceRaw));
 
-  // bonus "exploit isolé"
-  var variance = 0;
-  if(aps.length){
-    var mean = rawAudace;
-    aps.forEach(function(v){ variance += Math.pow(v-mean,2); });
-    variance = Math.sqrt(variance/aps.length);
-  }
-
-  // normalisation rareté groupe
-  var total = globalBuckets.low + globalBuckets.mid + globalBuckets.high;
-  var diversityBonus = total
-    ? (globalBuckets.low - globalBuckets.high) / total * 20
-    : 0;
-
-  var audace =
-    0.50 * weightedAudace +
-    0.30 * rawAudace +
-    0.20 * (50 + variance) +
-    diversityBonus;
-
-  audace = Math.max(0, Math.min(100, audace));
-
-  // performance inchangée
-  var rawAdjR = 0;
+  var rawAdjR=0,shrinkAdjR=0,w=0,adjR=0;
   if(pCnt){
-    rawAdjR = ((actS / pCnt) - (expS / pCnt)) * 100;
+    rawAdjR=((actS/pCnt)-(expS/pCnt))*100;
+    shrinkAdjR=((actS+1)/(pCnt+2)-expS/Math.max(1,pCnt))*100;
+    w=Math.min(1,pCnt/5);
+    adjR=rawAdjR*w+shrinkAdjR*(1-w);
+    adjR=Math.max(-85,Math.min(85,adjR));
   }
 
-  var shrinkAdjR =
-    ((actS + 1) / (pCnt + 2) - expS / Math.max(1,pCnt)) * 100;
+  /* Précision : écart entre score prédit et score réel */
+  var precSum=0,precCnt=0;
+  matches.forEach(function(m){
+    if(!m.played||!m.scorePred||m.scorePred==='...'||!m.resultScore||m.resultScore==='...') return;
+    var sp=m.scorePred.toString().replace(/\s/g,'').split(/[-:]/).map(Number);
+    var sr=m.resultScore.toString().replace(/\s/g,'').split(/[-:]/).map(Number);
+    if(sp.length!==2||sr.length!==2||isNaN(sp[0])||isNaN(sp[1])||isNaN(sr[0])||isNaN(sr[1])) return;
+    var diff=Math.abs(sp[0]-sr[0])+Math.abs(sp[1]-sr[1]);
+    precSum+=Math.max(0,1-diff/6);
+    precCnt++;
+  });
+  var precisionRaw=precCnt?(precSum/precCnt)*100:50;
 
-  var w = Math.min(1, pCnt / 5);
-  var adjR = rawAdjR * w + shrinkAdjR * (1 - w);
+  /* 10 derniers matchs joués */
+  var last10=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';}).sort(function(a,b){return (a.date||'')<(b.date||'')?-1:1;}).slice(-10);
+  var last10correct=last10.filter(function(m){return m.correct;}).length;
+  var last10wrong=last10.filter(function(m){return !m.correct;}).length;
 
-  adjR = Math.max(-85, Math.min(85, adjR));
+  /* Normalisation 0-10 */
+  var audace10=Math.round(audaceRaw/10);
+  var perf10=Math.round((adjR+85)/17);
+  var precision10=Math.round(precisionRaw/10);
+  var volatilite10=Math.round(Math.min(100,variance)/10);
 
-  return {
-    audace: Math.round(audace),
-    adjR: Math.round(adjR)
+  /* Archétypes */
+  var ARCHETYPES=[
+    {name:"GOAT",            a:10,p:10,pr:10,v:0},
+    {name:"Visionnaire",     a:10,p:10,pr:6, v:4},
+    {name:"Maestro",         a:6, p:10,pr:10,v:0},
+    {name:"Plat du Pied",    a:3, p:10,pr:6, v:0},
+    {name:"Bras Cassé",      a:6, p:10,pr:0, v:7},
+    {name:"Rebelle",         a:10,p:3, pr:0, v:7},
+    {name:"Le Touriste",     a:0, p:3, pr:6, v:0},
+    {name:"Météore",         a:3, p:3, pr:3, v:10},
+    {name:"Électron Libre",  a:10,p:0, pr:3, v:7},
+    {name:"Fou du Bus",      a:10,p:0, pr:3, v:10}
+  ];
+  var VOLATILE_ARCHETYPES=["GOAT","Maestro","Plat du Pied","Le Touriste"];
+
+  var best=null,bestDist=Infinity;
+  ARCHETYPES.forEach(function(arch){
+    var dist=Math.sqrt(
+      Math.pow(audace10-arch.a,2)+
+      Math.pow(perf10-arch.p,2)+
+      Math.pow(precision10-arch.pr,2)+
+      Math.pow(volatilite10-arch.v,2)
+    );
+    if(dist<bestDist){bestDist=dist;best=arch.name;}
+  });
+
+  var modifiers=[];
+  if(VOLATILE_ARCHETYPES.indexOf(best)>=0&&volatilite10>=6) modifiers.push("Chaotique");
+  if(last10.length>=5&&last10correct>=7) modifiers.push("En pétard 🔥");
+  if(last10.length>=5&&last10wrong>=7) modifiers.push("En perte 🧊");
+
+  return{
+    audace:Math.round(audaceRaw),
+    adjR:Math.round(adjR),
+    variance:Math.round(variance),
+    audace10:audace10, perf10:perf10, precision10:precision10, volatilite10:volatilite10,
+    archetype:best, modifiers:modifiers
   };
 }
 
@@ -398,7 +389,9 @@ playedM.forEach(function(m){
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace, adjR:risk.adjR,
+        audace:risk.audace, adjR:risk.adjR, variance:risk.variance,
+        audace10:risk.audace10, perf10:risk.perf10, precision10:risk.precision10, volatilite10:risk.volatilite10,
+        archetype:risk.archetype, modifiers:risk.modifiers,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot,
@@ -576,6 +569,28 @@ Object.keys(pronoCounts).forEach(function(k){
           <span className="mono" style={{color:P.text,fontSize:11,fontWeight:i===0?700:400}}>{d.val}{d.unit||""}</span>
         </div>;})}
     </div>;
+  }
+
+  function getGradient(p){
+    var a=p.audace10/10, perf=p.perf10/10, prec=p.precision10/10, vol=p.volatilite10/10;
+    // Audace : bleu ciel → rose saumon sunset
+    var aHue=Math.round(200+a*150);
+    var aSat=Math.round(45+a*20);
+    var cTop="hsl("+aHue+","+aSat+"%,80%)";
+    // Perf : olive → pêche dorée
+    var pHue=Math.round(80-perf*65);
+    var pSat=Math.round(30+perf*40);
+    var pLight=Math.round(65+perf*15);
+    var cMid="hsl("+pHue+","+pSat+"%,"+pLight+"%)";
+    // Précision : lavande → violet doux
+    var prHue=Math.round(250+prec*20);
+    var prSat=Math.round(20+prec*35);
+    var prLight=Math.round(84-prec*12);
+    var cBot="hsl("+prHue+","+prSat+"%,"+prLight+"%)";
+    if(vol<=0.20) return"linear-gradient(180deg,"+cTop+" 0%,"+cMid+" 50%,"+cBot+" 100%)";
+    var audStop=Math.round(33+vol*47);
+    var perfStop=Math.round(66+vol*24);
+    return"linear-gradient(180deg,"+cTop+" 0%,"+cTop+" "+audStop+"%,"+cMid+" "+perfStop+"%,"+cBot+" 100%)";
   }
 
   function App(){
@@ -915,49 +930,81 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
         </div>}
 
         {/* RISQUES */}
-        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:P.card,padding:"18px 22px"}}>
-            <div style={{position:"relative",height:420}}>
-              {ZONES.map(function(z){
-                var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
-                var isTop=z.y1>=0;
-                var pos=Object.assign({position:"absolute"},z.corner);
-                return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"6px 10px",minWidth:90,border:"1px solid "+z.c+(isTop?"":"88"),background:isTop?z.c+"28":P.card+"F0"})}>
-                  <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>{z.label}</p>
-                  <p className="mono" style={{color:z.c,fontSize:20,fontWeight:700,lineHeight:1}}>{count}</p>
-                  <p className="mono" style={{color:z.c,fontSize:7,marginTop:2,opacity:0.8}}>{z.sub}</p>
-                </div>;
-              })}
-              <ResponsiveContainer width="100%" height={420}>
-                <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
-                  <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
-                  <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
-                  <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
-  if(!p.active||!p.payload||!p.payload.length)return null;
-  var d=p.payload[0].payload;
-  var reussite=nM>0?Math.round(d.correct/nM*100):0;
-  var sign=d.adjR>=0?"+":"";
-  var zKey=gz({x:d.audace,y:d.adjR});
-  var zLabels={platdupied:"PLAT DU PIED",genie:"GÉNIE",timberland:"TIMBERLAND",foudubas:"FOU DU BUS"};
-  var zCol=ZC[zKey];
-  return<div style={Object.assign({},TT)}>
-    <p style={{fontWeight:700,marginBottom:4}}>{d.name}</p>
-    <p className="mono" style={{color:zCol,fontSize:8,fontWeight:700,letterSpacing:"0.12em",marginBottom:8}}>{zLabels[zKey]}</p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
-  </div>;
-}}/>
-                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
-                </ScatterChart>
-              </ResponsiveContainer>
+        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em"}}>PROFILS JOUEURS · DÉGRADÉ = SIGNATURE · CLIQUER POUR COMPARER (MAX 2)</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
+            {players.map(function(p){
+              var isSelected=focusedR.indexOf(p.name)>=0;
+              var grad=getGradient(p);
+              var idx=players.indexOf(p);
+              var col=WHEEL[idx%WHEEL.length];
+              return<div key={p.name} onClick={function(){setFocusedR(function(prev){
+                if(prev.indexOf(p.name)>=0) return prev.filter(function(x){return x!==p.name;});
+                if(prev.length>=2) return [prev[1],p.name];
+                return prev.concat([p.name]);
+              });}} style={{width:110,borderRadius:12,overflow:"hidden",cursor:"pointer",
+                boxShadow:isSelected?"0 8px 24px "+col+"60":"0 2px 8px rgba(0,0,0,0.08)",
+                border:"2px solid "+(isSelected?col:"transparent"),
+                transform:isSelected?"translateY(-4px)":"none",transition:"all 0.2s"}}>
+                {/* dégradé + radar SVG */}
+                <div style={{height:130,background:grad,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {(function(){
+                    var dims=[
+                      {label:"A",val:p.audace10/10,angle:-90},
+                      {label:"P",val:p.perf10/10,angle:0},
+                      {label:"Pr",val:p.precision10/10,angle:90},
+                      {label:"V",val:p.volatilite10/10,angle:180}
+                    ];
+                    var cx=55,cy=55,r=38,sz=110;
+                    function toRad(deg){return deg*Math.PI/180;}
+                    var gridPts=function(lv){return dims.map(function(d){return(cx+r*lv*Math.cos(toRad(d.angle)))+","+(cy+r*lv*Math.sin(toRad(d.angle)));}).join(" ");};
+                    var dataPts=dims.map(function(d){return(cx+r*d.val*Math.cos(toRad(d.angle)))+","+(cy+r*d.val*Math.sin(toRad(d.angle)));}).join(" ");
+                    return<svg width={sz} height={sz} style={{position:"absolute"}}>
+                      {[0.33,0.66,1].map(function(lv){return<polygon key={lv} points={gridPts(lv)} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={0.7}/>;}) }
+                      {dims.map(function(d,i){return<line key={i} x1={cx} y1={cy} x2={cx+r*Math.cos(toRad(d.angle))} y2={cy+r*Math.sin(toRad(d.angle))} stroke="rgba(255,255,255,0.3)" strokeWidth={0.7}/>;}) }
+                      <polygon points={dataPts} fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.9)" strokeWidth={1.5}/>
+                      {dims.map(function(d,i){return<circle key={i} cx={cx+r*d.val*Math.cos(toRad(d.angle))} cy={cy+r*d.val*Math.sin(toRad(d.angle))} r={2.5} fill="white"/>;}) }
+                    </svg>;
+                  })()}
+                </div>
+                {/* info strip */}
+                <div style={{padding:"8px 10px 10px",background:P.card}}>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:4}}>
+                    <span className="mono" style={{fontSize:7,fontWeight:700,color:col,background:col+"18",padding:"1px 4px"}}>{p.archetype}</span>
+                    {(p.modifiers||[]).map(function(m){return<span key={m} className="mono" style={{fontSize:7,color:P.muted,background:P.bg,padding:"1px 4px"}}>{m}</span>;}) }
+                  </div>
+                  <p className="serif" style={{fontSize:13,color:P.text,fontWeight:400}}>{p.name}</p>
+                  <p className="mono" style={{fontSize:7,color:P.muted,marginTop:2}}>{p.points} pts</p>
+                </div>
+              </div>;
+            })}
+          </div>
+          {focusedR.length>0&&<div style={{background:P.card,border:"1px solid "+P.line,padding:"16px 20px"}}>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:12}}>COMPARAISON</p>
+            <div style={{display:"flex",gap:20,flexWrap:"wrap",alignItems:"flex-start"}}>
+              {(function(){
+                var sel=focusedR.map(function(n){return players.find(function(p){return p.name===n;});}).filter(Boolean);
+                var dims=[{key:"audace10",label:"Audace"},{key:"perf10",label:"Perf"},{key:"precision10",label:"Précision"},{key:"volatilite10",label:"Volatilité"}];
+                return sel.map(function(p){
+                  var idx=players.indexOf(p);
+                  var col=WHEEL[idx%WHEEL.length];
+                  return<div key={p.name} style={{minWidth:140}}>
+                    <p className="mono" style={{fontSize:8,fontWeight:700,color:col,marginBottom:6}}>{p.name} — {p.archetype}</p>
+                    {dims.map(function(d){return<div key={d.key} style={{marginBottom:6}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                        <span className="mono" style={{fontSize:8,color:P.muted}}>{d.label}</span>
+                        <span className="mono" style={{fontSize:8,fontWeight:700,color:P.text}}>{p[d.key]}/10</span>
+                      </div>
+                      <div style={{height:3,background:P.bg,borderRadius:99}}>
+                        <div style={{height:"100%",width:(p[d.key]*10)+"%",background:col,borderRadius:99}}/>
+                      </div>
+                    </div>;}) }
+                  </div>;
+                });
+              })()}
             </div>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focusedR.indexOf(p.name)>=0,on=focusedR.length===0||iF;return<button key={p.name} onClick={function(){setFocusedR(function(prev){return prev.indexOf(p.name)>=0?prev.filter(function(x){return x!==p.name;}):prev.concat([p.name]);});}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:col}}/><span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span></button>;})}
-            {focusedR.length>0&&<button onClick={function(){setFocusedR([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
-          </div>
+            <button onClick={function(){setFocusedR([]);}} style={{marginTop:12,padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕ Effacer</span></button>
+          </div>}
         </div>}
 
         {/* PODIUM */}
