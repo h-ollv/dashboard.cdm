@@ -893,53 +893,7 @@ console.log(progData[0]);
   tickLine={false}
 />
                   <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
-                 {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return
-                  <Line
-  key={p.name}
-  type="linear"
-  activeDot={{r:5}}
-  dataKey={p.name}
-  stroke={col}
-  strokeWidth={3}
-  strokeOpacity={0.85}
-  dot={function(props){
-    return (
-      <g>
-        <circle
-          cx={props.cx}
-          cy={props.cy}
-          r={6}
-          fill="#FDFCF9"
-          stroke={col}
-          strokeWidth={2}
-        />
-      </g>
-    );
-  }}
-
-  label={function(props){
-
-    var isLast =
-      props.index === progData.length - 1;
-
-    if(!isLast) return null;
-
-    return (
-      <text
-        x={props.x + 10}
-        y={props.y + 4}
-        fontFamily="'Space Mono', monospace"
-        fontSize="9"
-        fill={col}
-      >
-        {p.name}
-      </text>
-    );
-
-  }}
-
-  legendType="none"
-/>
+                 {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="stepAfter" activeDot={{r:5}} dataKey={p.name} stroke={col} strokeWidth={
   focused.length===0
     ? 3
     : iF
@@ -953,22 +907,7 @@ strokeOpacity={
     : iF
       ? 1
       : 0.08
-} dot={function(props){
-
-  return (
-    <g>
-      <circle
-        cx={props.cx}
-        cy={props.cy}
-        r={6}
-        fill="#FDFCF9"
-        stroke={col}
-        strokeWidth={2}
-      />
-    </g>
-  );
-
-}} legendType="none"/>;})}{focused.length===1&&(function(){
+} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
                     var fp=players.find(function(p){return p.name===focused[0];});
                     if(!fp)return null;
                     var col=WHEEL[players.indexOf(fp)%WHEEL.length];
