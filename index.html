@@ -893,12 +893,25 @@ console.log(progData[0]);
   tickLine={false}
 />
                   <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
-                 {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="natural" activeDot={{r:5}} dataKey={p.name} stroke={col} strokeWidth={focused.length===0 ? 2.5 : iF ? 5 : 1}
-strokeOpacity={focused.length===0 ? 0.75 : iF ? 1 : 0.08} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
+                 {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="stepAfter" activeDot={{r:5}} dataKey={p.name} stroke={col} strokeWidth={
+  focused.length===0
+    ? 3
+    : iF
+      ? 5
+      : 1
+}
+
+strokeOpacity={
+  focused.length===0
+    ? 0.85
+    : iF
+      ? 1
+      : 0.08
+} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
                     var fp=players.find(function(p){return p.name===focused[0];});
                     if(!fp)return null;
                     var col=WHEEL[players.indexOf(fp)%WHEEL.length];
-                    return<Line key="__focusLabel" type="natural" dataKey={fp.name} stroke="transparent"
+                    return<Line key="__focusLabel" type="stepAfter" dataKey={fp.name} stroke="transparent"
 animationDuration={600}
 animationEasing="ease-in-out" dot={{r:2}} activeDot={{ r: 3 }} isAnimationActive={false} legendType="none"
                       label={function(props){
