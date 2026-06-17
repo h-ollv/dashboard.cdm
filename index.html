@@ -639,6 +639,9 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
     var _f=useState([]),focused=_f[0],setFocused=_f[1];
     var _pd=useState([]),playedDates=_pd[0],setPD=_pd[1];
     var _cd=useState([]),completedDates=_cd[0],setCD=_cd[1];
+    var _h=useState(null),
+    hovered=_h[0],
+    setHovered=_h[1];
     /* ← hooks dans App */
     var _fr=useState([]),focusedR=_fr[0],setFocusedR=_fr[1];
     var _tp=useState(null),topProno=_tp[0],setTopProno=_tp[1];
@@ -749,7 +752,7 @@ console.log(progData[0]);
           </div>
         </div>
 
-        <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
+        <div style={{display:"flex",marginBottom:22}}>
           {[
  {l:"LEADER",v:P0.name,sub:P0.points?P0.points+" pts":""},
  {l:"MATCHS JOUÉS",v:String(nM)},
@@ -1024,7 +1027,12 @@ console.log(progData[0]);
 
       {players.map(function(p,i){
 
-        var active=focused.length===0 || focused.indexOf(p.name)>=0;
+        var hoverOn=hovered===p.name;
+
+var active=
+  hoverOn ||
+  focused.length===0 ||
+  focused.indexOf(p.name)>=0;
         var selected=focused.indexOf(p.name)>=0;
 
         var color=WHEEL[i%WHEEL.length];
@@ -1032,10 +1040,12 @@ console.log(progData[0]);
         return(
 
           <g
-            key={p.name}
-            onClick={function(){tog(p.name);}}
-            style={{cursor:"pointer"}}
-          >
+  key={p.name}
+  onClick={function(){tog(p.name);}}
+  onMouseEnter={function(){setHovered(p.name);}}
+  onMouseLeave={function(){setHovered(null);}}
+  style={{cursor:"pointer"}}
+>
 
             <path
               d={buildPath(p.name)}
