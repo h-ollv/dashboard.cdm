@@ -1013,11 +1013,12 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
         </div>}
 
         {/* PODIUM */}
-        {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10,background:P.card}}>
+        {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10,}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
 <Pod
   title="Meilleur boosteur"
   color={WHEEL[0]}
+  style={{background:P.card}}
   players={players}
   data={players.map(function(p){
     return {
@@ -1027,11 +1028,11 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
     };
   })}
 />  
-  <Pod title="Scores exacts" color={WHEEL[3]} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
+  <Pod title="Scores exacts" color={WHEEL[3]} style={{background:P.card}} players={players} data={players.map(function(p){return{name:p.name,val:p.exact||0};})}/>
 
-  <Pod title="Plus longue série 🔥" color="#A8C490" players={players} data={players.map(function(p){return{name:p.name,val:p.maxHot||0};})}/>
+  <Pod title="Plus longue série 🔥" color="#A8C490"  style={{background:P.card}} players={players} data={players.map(function(p){return{name:p.name,val:p.maxHot||0};})}/>
 
-  <Pod title="Plus longue série 🧊" color="#9BB6C9" players={players} data={players.map(function(p){return{name:p.name,val:p.maxCold||0};})}/>
+  <Pod title="Plus longue série 🧊" color="#9BB6C9" style={{background:P.card}} players={players} data={players.map(function(p){return{name:p.name,val:p.maxCold||0};})}/>
 </div>
           {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
             <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS POPULAIRE</p>
