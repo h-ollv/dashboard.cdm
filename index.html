@@ -1,3 +1,7 @@
+
+
+
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -999,6 +1003,24 @@ console.log(progData[0]);
           </text>
         );
       })}
+
+      {Array.from({length:players.length},function(_,i){
+
+  return(
+    <text
+      key={"rank-"+i}
+      x={35}
+      y={Y(i+1)+4}
+      textAnchor="middle"
+      fill={P.muted}
+      fontSize="11"
+      fontFamily="'Space Mono',monospace"
+    >
+      {i+1}
+    </text>
+  );
+
+})}
 
       {players.map(function(p,i){
 
