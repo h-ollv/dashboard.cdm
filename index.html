@@ -1,7 +1,3 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -687,6 +683,45 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
       sr.forEach(function(p,i){row[p.name]=i+1;});
       return row;
     });
+    var bestMove=null;
+var worstMove=null;
+
+for(var j=1;j<progData.length;j++){
+
+  players.forEach(function(p){
+
+    var prev=progData[j-1][p.name];
+    var curr=progData[j][p.name];
+
+    if(prev==null || curr==null) return;
+
+    var delta=prev-curr;
+
+    if(
+      !bestMove ||
+      delta>bestMove.delta
+    ){
+      bestMove={
+        name:p.name,
+        delta:delta,
+        journee:progData[j].j
+      };
+    }
+
+    if(
+      !worstMove ||
+      delta<worstMove.delta
+    ){
+      worstMove={
+        name:p.name,
+        delta:delta,
+        journee:progData[j].j
+      };
+    }
+
+  });
+
+}
     var journeeInfo=players.length===0?[]:progDts.map(function(raw,idx){
       var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
       var pts={};
@@ -727,40 +762,6 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
 
   return row;
 });
-
-var bestMove=null;
-var worstMove=null;
-
-for(var j=1;j<progData.length;j++){
-
-  players.forEach(function(p){
-
-    var prev=progData[j-1][p.name];
-    var curr=progData[j][p.name];
-
-    if(prev==null || curr==null) return;
-
-    var delta=prev-curr;
-
-    if(!bestMove || delta>bestMove.delta){
-      bestMove={
-        name:p.name,
-        delta:delta,
-        journee:progData[j].j
-      };
-    }
-
-    if(!worstMove || delta<worstMove.delta){
-      worstMove={
-        name:p.name,
-        delta:delta,
-        journee:progData[j].j
-      };
-    }
-
-  });
-
-}
 console.log(progData[0]);
 
     var leaderStreak=0;
@@ -773,7 +774,7 @@ console.log(progData[0]);
       }
     }
 
-    if(loading)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>CHARGEMENT</p><p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p></div></div>;
+    if(loading)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.32em",marginBottom:16}}>✦ CHARGEMENT ✦</p><p className="serif" style={{color:P.text,fontSize:22}}>Récupération des données…</p><p className="mono" style={{color:P.muted,fontSize:8,marginTop:8}}>{PLAYER_SHEETS.length} onglets</p></div></div>;
     if(error)return<div style={{background:P.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}><div style={{maxWidth:500,textAlign:"center"}}><p className="mono" style={{color:"#E8A098",fontSize:9,marginBottom:12}}>⚠ ERREUR</p><p className="serif" style={{color:P.text,fontSize:18,marginBottom:12}}>{error}</p><p className="mono" style={{color:P.muted,fontSize:8,lineHeight:1.8}}>Sheet public requis · vérifier PLAYER_SHEETS</p></div></div>;
 
     return<div style={{background:P.bg,minHeight:"100vh",padding:"28px 20px"}}>
@@ -1015,7 +1016,7 @@ console.log(progData[0]);
   }
 
   return(
-    <>
+
     <svg
       viewBox={"0 0 "+W+" "+H}
       style={{
@@ -1138,15 +1139,111 @@ var active=
 
           </g>
         );
-            })}
+      })}
 
-        </svg>
-
-    </>
+    </svg>
 
   );
+<div
+  style={{
+    display:"flex",
+    justifyContent:"center",
+    gap:40,
+    marginTop:12,
+    paddingTop:10,
+    borderTop:"1px solid "+P.line
+  }}
+>
 
+  {bestMove && (
+    <div>
+
+      <span
+        className="mono"
+        style={{
+          color:P.muted,
+          fontSize:8,
+          letterSpacing:"0.12em",
+          textTransform:"uppercase"
+        }}
+      >
+        Meilleure progression :
+      </span>
+
+      {" "}
+
+      <span
+        className="serif"
+        style={{
+          color:P.text,
+          fontSize:16
+        }}
+      >
+        {bestMove.name}
+      </span>
+
+      {" "}
+
+      <span
+        className="mono"
+        style={{
+          color:"#2E8B57",
+          fontSize:9
+        }}
+      >
+        +{bestMove.delta} en {bestMove.journee}
+      </span>
+
+    </div>
+  )}
+
+  {worstMove && (
+    <div>
+
+      <span
+        className="mono"
+        style={{
+          color:P.muted,
+          fontSize:8,
+          letterSpacing:"0.12em",
+          textTransform:"uppercase"
+        }}
+      >
+        Pire régression :
+      </span>
+
+      {" "}
+
+      <span
+        className="serif"
+        style={{
+          color:P.text,
+          fontSize:16
+        }}
+      >
+        {worstMove.name}
+      </span>
+
+      {" "}
+
+      <span
+        className="mono"
+        style={{
+          color:"#B22222",
+          fontSize:9
+        }}
+      >
+        {worstMove.delta} en {worstMove.journee}
+      </span>
+
+    </div>
+  )}
+
+</div>
 })()}
+              
+            </div>}
+        </div>}
 
         {/* RISQUES */}
         {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
