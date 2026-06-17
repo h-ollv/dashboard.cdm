@@ -1015,7 +1015,7 @@ console.log(progData[0]);
   }
 
   return(
-    <React.Fragment>
+    <>
     <svg
       viewBox={"0 0 "+W+" "+H}
       style={{
@@ -1142,100 +1142,7 @@ var active=
 
         </svg>
 
-    <div
-      style={{
-        display:"flex",
-        justifyContent:"center",
-        gap:40,
-        marginTop:12,
-        paddingTop:10,
-        borderTop:"1px solid "+P.line
-      }}
-    >
-
-      {bestMove && (
-        <div>
-          <span
-            className="mono"
-            style={{
-              color:P.muted,
-              fontSize:8,
-              letterSpacing:"0.12em",
-              textTransform:"uppercase"
-            }}
-          >
-            Meilleure progression :
-          </span>
-
-          {" "}
-
-          <span
-            className="serif"
-            style={{
-              color:P.text,
-              fontSize:16
-            }}
-          >
-            {bestMove.name}
-          </span>
-
-          {" "}
-
-          <span
-            className="mono"
-            style={{
-              color:"#2E8B57",
-              fontSize:9
-            }}
-          >
-            +{bestMove.delta} en {bestMove.journee}
-          </span>
-        </div>
-      )}
-
-      {worstMove && (
-        <div>
-          <span
-            className="mono"
-            style={{
-              color:P.muted,
-              fontSize:8,
-              letterSpacing:"0.12em",
-              textTransform:"uppercase"
-            }}
-          >
-            Pire régression :
-          </span>
-
-          {" "}
-
-          <span
-            className="serif"
-            style={{
-              color:P.text,
-              fontSize:16
-            }}
-          >
-            {worstMove.name}
-          </span>
-
-          {" "}
-
-          <span
-            className="mono"
-            style={{
-              color:"#B22222",
-              fontSize:9
-            }}
-          >
-            {worstMove.delta} en {worstMove.journee}
-          </span>
-        </div>
-      )}
-
-    </div>
-
-    </React.Fragment>
+    </>
 
   );
 
