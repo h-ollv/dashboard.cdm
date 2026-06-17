@@ -932,32 +932,138 @@ console.log(progData[0]);
           </div>}
           {progData.length===0?<p className="mono" style={{color:P.muted,fontSize:8}}>Aucune journée disponible.</p>
             :<div>
-              <ResponsiveContainer width="100%" height={340}>
-                <LineChart data={progData} margin={{top:10,right:20,left:0,bottom:10}}>
-                  
-                  <XAxis dataKey="j" tick={{fill:P.muted,fontSize:9,fontFamily:"'Space Mono',monospace"}} axisLine={{stroke:P.line}} tickLine={false}/>
-                  <YAxis
-  reversed
-  domain={[1,players.length]}
-  allowDecimals={false}
-  tick={{fill:P.muted,fontSize:8,fontFamily:"'Space Mono',monospace"}}
-  axisLine={false}
-  tickLine={false}
-/>
-                  <Tooltip contentStyle={TT} formatter={function(v,n){return["#"+v,n];}}/>
-                  {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focused.indexOf(p.name)>=0,on=focused.length===0||iF;return<Line key={p.name} type="monotone" dataKey={p.name} stroke={col} strokeWidth={iF ? 2.5 : on ? 1.3 : 0.6}
-strokeOpacity={on ? 1 : 0.12} dot={false} legendType="none"/>;})}{focused.length===1&&(function(){
-                    var fp=players.find(function(p){return p.name===focused[0];});
-                    if(!fp)return null;
-                    var col=WHEEL[players.indexOf(fp)%WHEEL.length];
-                    return<Line key="__focusLabel" type="natural" dataKey={fp.name} stroke="transparent" isAnimationActive={true}
-animationDuration={600}
-animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive={false} legendType="none"
-                      label={function(props){
-                        return<text key={"lbl-"+props.index} x={props.x} y={props.y-10} textAnchor="middle" fontFamily="'Cormorant Garamond',serif" fontSize={14} fontWeight={500} opacity={0.9} fill={col}>#{props.value}</text>;
-                      }}/>;
-                  })()}</LineChart>
-              </ResponsiveContainer>
+              {progData.length>0 && (function(){
+
+  var W=760;
+  var H=Math.max(420, players.length*28);
+
+  var left=70;
+  var right=140;
+  var top=30;
+  var bottom=40;
+
+  var innerW=W-left-right;
+  var innerH=H-top-bottom;
+
+  function X(i){
+    return left + (i*(innerW/(progData.length-1||1)));
+  }
+
+  function Y(rank){
+    return top + ((rank-1)*(innerH/(players.length-1||1)));
+  }
+
+  function buildPath(name){
+
+    var d="";
+
+    progData.forEach(function(row,i){
+
+      var x=X(i);
+      var y=Y(row[name]);
+
+      if(i===0){
+        d+="M"+x+","+y;
+      }else{
+        var px=X(i-1);
+        var py=Y(progData[i-1][name]);
+
+        var cx=(px+x)/2;
+
+        d+=" C "+cx+","+py+" "+cx+","+y+" "+x+","+y;
+      }
+    });
+
+    return d;
+  }
+
+  return(
+
+    <svg
+      viewBox={"0 0 "+W+" "+H}
+      style={{
+        width:"100%",
+        height:"auto",
+        overflow:"visible"
+      }}
+    >
+
+      {progData.map(function(row,i){
+
+        return(
+          <text
+            key={"j"+i}
+            x={X(i)}
+            y={18}
+            textAnchor="middle"
+            fill={P.muted}
+            fontSize="10"
+            fontFamily="'Space Mono',monospace"
+          >
+            {row.j}
+          </text>
+        );
+      })}
+
+      {players.map(function(p,i){
+
+        var active=focused.length===0 || focused.indexOf(p.name)>=0;
+        var selected=focused.indexOf(p.name)>=0;
+
+        var color=WHEEL[i%WHEEL.length];
+
+        return(
+
+          <g
+            key={p.name}
+            onClick={function(){tog(p.name);}}
+            style={{cursor:"pointer"}}
+          >
+
+            <path
+              d={buildPath(p.name)}
+              fill="none"
+              stroke={color}
+              strokeWidth={selected ? 5 : active ? 3 : 1}
+              strokeOpacity={active ? 0.95 : 0.08}
+              strokeLinecap="round"
+            />
+
+            {progData.map(function(row,j){
+
+              return(
+                <circle
+                  key={p.name+"-"+j}
+                  cx={X(j)}
+                  cy={Y(row[p.name])}
+                  r={selected ? 6 : 4}
+                  fill={color}
+                  opacity={active ? 1 : 0.08}
+                />
+              );
+            })}
+
+            <text
+              x={W-right+15}
+              y={Y(progData[progData.length-1][p.name])+4}
+              fill={color}
+              fontSize="12"
+              fontFamily="'Space Mono',monospace"
+              fontWeight={selected?700:400}
+              opacity={active?1:0.15}
+            >
+              {p.name}
+            </text>
+
+          </g>
+        );
+      })}
+
+    </svg>
+
+  );
+
+})()}
               <p className="mono" style={{color:P.muted,fontSize:7,margin:"10px 0 8px",letterSpacing:"0.1em"}}>#1 EN HAUT · ⏳ JOURNÉE EN COURS</p>
             </div>}
           <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:12}}>
