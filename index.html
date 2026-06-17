@@ -1013,7 +1013,7 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
         </div>}
 
         {/* PODIUM */}
-        {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10,background:P.card}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
 <Pod
   title="Meilleur boosteur"
@@ -1066,7 +1066,7 @@ animationEasing="ease-in-out" dot={false} activeDot={{ r: 3 }} isAnimationActive
             var filtered=divergentData.filter(function(v){return v.poule===filterPoule;});
             var GOLD="#C9A84C";
             var BAR=180;
-            return<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
+            return<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
                 <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700}}>PRONOS PAR MATCH</p>
                 <select className="mono" onChange={function(e){setFilterPoule(e.target.value);}} value={filterPoule||''} style={{fontSize:9,padding:"3px 6px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
