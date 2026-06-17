@@ -1314,6 +1314,7 @@ var active=
 </div>
 {divergentData.length>0&&(function(){
             var poules=[...new Set(divergentData.map(function(v){return v.poule;}).filter(function(p){return p&&p!==null&&p!=='null';}))].sort();
+            console.log(poules);
             var filtered=divergentData.filter(function(v){return v.poule===filterPoule;});
             var GOLD="#C9A84C";
             var BAR=180;
