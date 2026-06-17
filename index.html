@@ -1153,40 +1153,12 @@ console.log(progData[0]);
 
   <Pod title="Plus longue série 🧊" color="#9BB6C9" players={players} data={players.map(function(p){return{name:p.name,val:p.maxCold||0};})}/>
 </div>
-          {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS POPULAIRE</p>
-            <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
-  <span style={{fontWeight:600}}>
-    {topProno.count} joueurs
-  </span>{' '}
-  ont pronostiqué{' '}
-  <span style={{color:P,fontWeight:600}}>
-    {topProno.teamName}
-  </span>{' '}
-  <span style={{color:P,fontSize:10}} className="mono">
-    ({topProno.score})
-  </span>{' '}
-  dans le match{' '}
-  <span style={{color:P}}>
-    {topProno.matchDisplay}
-  </span>
-</p>
-          </div>}
-          {topImprobable&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
-            <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
-              <span style={{fontWeight:600}}>{topImprobable.player}</span> a parié{' '}
-              {topImprobable.score&&topImprobable.score!=='...'&&<span style={{color:P.muted}}>{topImprobable.score} </span>}
-              pour <span style={{fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
-              contre <span style={{color:P.muted}}>{topImprobable.oppTeam}</span>
-            </p>
-          </div>}
-          {divergentData.length>0&&(function(){
+{divergentData.length>0&&(function(){
             var poules=[...new Set(divergentData.map(function(v){return v.poule;}).filter(function(p){return p&&p!==null&&p!=='null';}))].sort();
             var filtered=divergentData.filter(function(v){return v.poule===filterPoule;});
             var GOLD="#C9A84C";
             var BAR=180;
-            return<div style={{border:"1px solid "+P.line,padding:"16px 20px"}}>
+            return<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
                 <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700}}>PRONOS PAR MATCH</p>
                 <select className="mono" onChange={function(e){setFilterPoule(e.target.value);}} value={filterPoule||''} style={{fontSize:9,padding:"3px 6px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
@@ -1224,6 +1196,34 @@ console.log(progData[0]);
               </div>
             </div>;
           })()}
+          {topProno&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS POPULAIRE</p>
+            <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
+  <span style={{fontWeight:600}}>
+    {topProno.count} joueurs
+  </span>{' '}
+  ont pronostiqué{' '}
+  <span style={{color:P,fontWeight:600}}>
+    {topProno.teamName}
+  </span>{' '}
+  <span style={{color:P,fontSize:10}} className="mono">
+    ({topProno.score})
+  </span>{' '}
+  dans le match{' '}
+  <span style={{color:P}}>
+    {topProno.matchDisplay}
+  </span>
+</p>
+          </div>}
+          {topImprobable&&<div style={{border:"1px solid "+P.line,padding:"16px 20px",background:P.card}}>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700,marginBottom:10}}>PARI LE PLUS IMPROBABLE · AUDACE {topImprobable.audace}%</p>
+            <p className="serif" style={{color:P.text,fontSize:17,lineHeight:1.5}}>
+              <span style={{fontWeight:600}}>{topImprobable.player}</span> a parié{' '}
+              {topImprobable.score&&topImprobable.score!=='...'&&<span style={{color:P.muted}}>{topImprobable.score} </span>}
+              pour <span style={{fontWeight:600}}>{topImprobable.betTeam}</span>{' '}
+              contre <span style={{color:P.muted}}>{topImprobable.oppTeam}</span>
+            </p>
+          </div>}
         </div>}
 
       </div>
