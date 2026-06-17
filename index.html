@@ -1322,7 +1322,9 @@ var active=
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
                 <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700}}>PRONOS PAR MATCH</p>
                 <select className="mono" onChange={function(e){setFilterPoule(e.target.value);}} value={filterPoule||''} style={{fontSize:9,padding:"3px 6px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
-                  {poules.map(function(p){return<option key={p} value={p}>{p.replace('Poule','Groupe')}</option>;})}
+                  {poules.map(function(p){
+  return<option key={p} value={p}>{p}</option>;
+})}
                 </select>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
