@@ -109,7 +109,7 @@ function parsePlayerSheet(rows){
     if(rw[0]&&typeof rw[0]==='string'&&rw[0].indexOf('Poule')===0){var prevPoule=curPoule;flush(prevPoule);block=[];curPoule=rw[0];continue;}
     block.push(rw);
   }
-  flush();
+  flush(curPoule);
   return{name:name.trim()||null,matches:matches};
 }
 
@@ -1313,8 +1313,18 @@ var active=
   <Pod title="Plus longue série 🧊" color="#9BB6C9" players={players} data={players.map(function(p){return{name:p.name,val:p.maxCold||0};})}/>
 </div>
 {divergentData.length>0&&(function(){
-            var poules=[...new Set(divergentData.map(function(v){return v.poule;}).filter(function(p){return p&&p!==null&&p!=='null';}))].sort();
-            console.log(poules);
+            var poules=[...new Set(
+  divergentData
+    .map(function(v){
+      return v.poule==="Equipe A" ? "Poule A" : v.poule;
+    })
+    .filter(function(p){
+      return p && p!==null && p!=="null";
+    })
+)].sort();
+if(filterPoule==="Equipe A"){
+  setFilterPoule("Poule A");
+}
             var filtered=divergentData.filter(function(v){return v.poule===filterPoule;});
             var GOLD="#C9A84C";
             var BAR=180;
