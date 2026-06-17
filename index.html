@@ -1,7 +1,3 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -582,45 +578,7 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
   return a.match<b.match?-1:1;
 });
 
-var bestMove=null;
-var worstMove=null;
 
-for(var j=1;j<progData.length;j++){
-
-  players.forEach(function(p){
-
-    var prev=progData[j-1][p.name];
-    var curr=progData[j][p.name];
-
-    if(prev==null || curr==null) return;
-
-    var delta=prev-curr;
-
-    if(
-      !bestMove ||
-      delta>bestMove.delta
-    ){
-      bestMove={
-        name:p.name,
-        delta:delta,
-        journee:progData[j].j
-      };
-    }
-
-    if(
-      !worstMove ||
-      delta<worstMove.delta
-    ){
-      worstMove={
-        name:p.name,
-        delta:delta,
-        journee:progData[j].j
-      };
-    }
-
-  });
-
-}
     return{players:out,nMatchs:nMatchsJoues,playedDates:playedDates,completedDates:completedDates,topProno:topProno,topImprobable:topImprobable,divergentData:divergentData};
   });
 };
@@ -725,7 +683,45 @@ for(var j=1;j<progData.length;j++){
       sr.forEach(function(p,i){row[p.name]=i+1;});
       return row;
     });
+    var bestMove=null;
+var worstMove=null;
 
+for(var j=1;j<progData.length;j++){
+
+  players.forEach(function(p){
+
+    var prev=progData[j-1][p.name];
+    var curr=progData[j][p.name];
+
+    if(prev==null || curr==null) return;
+
+    var delta=prev-curr;
+
+    if(
+      !bestMove ||
+      delta>bestMove.delta
+    ){
+      bestMove={
+        name:p.name,
+        delta:delta,
+        journee:progData[j].j
+      };
+    }
+
+    if(
+      !worstMove ||
+      delta<worstMove.delta
+    ){
+      worstMove={
+        name:p.name,
+        delta:delta,
+        journee:progData[j].j
+      };
+    }
+
+  });
+
+}
     var journeeInfo=players.length===0?[]:progDts.map(function(raw,idx){
       var iP=raw.indexOf('__p')>=0,d=iP?raw.replace('__p',''):raw;
       var pts={};
