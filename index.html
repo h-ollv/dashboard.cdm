@@ -934,11 +934,11 @@ console.log(progData[0]);
             :<div>
               {progData.length>0 && (function(){
 
-  var W=760;
+  var W=110;
   var H=Math.max(420, players.length*28);
 
   var left=70;
-  var right=140;
+  var right=220;
   var top=30;
   var bottom=40;
 
@@ -1040,9 +1040,28 @@ console.log(progData[0]);
                   fill={color}
                   opacity={active ? 1 : 0.08}
                 />
+                
               );
             })}
+            {(focused.indexOf(p.name)>=0)
+ && progData.map(function(row,j){
 
+  return(
+    <text
+      key={"lbl-"+p.name+"-"+j}
+      x={X(j)}
+      y={Y(row[p.name])-12}
+      textAnchor="middle"
+      fill="#000"
+      fontSize="11"
+      fontFamily="'Space Mono',monospace"
+      fontWeight="700"
+    >
+      {row[p.name]}
+    </text>
+  );
+
+})}
             <text
               x={W-right+15}
               y={Y(progData[progData.length-1][p.name])+4}
