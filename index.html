@@ -655,8 +655,15 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
         var s=r.players.slice().sort(function(a,b){return b.points-a.points||b.exact-a.exact||b.correct-a.correct;});
         s.forEach(function(p,i){p.rank=i+1;});
         setPlayers(s);setNM(r.nMatchs);setPD(r.playedDates||[]);setCD(r.completedDates||[]);
-        setTopProno(r.topProno||null);setTopImprobable(r.topImprobable||null);setDV(r.divergentData||[]);
-        setLoading(false);
+        setTopProno(r.topProno||null);
+setTopImprobable(r.topImprobable||null);
+setDV(r.divergentData||[]);
+
+if((r.divergentData||[]).length){
+  setFilterPoule(r.divergentData[0].poule);
+}
+
+setLoading(false);
       }).catch(function(e){setError(e.message);setLoading(false);});
     },[]);
 
