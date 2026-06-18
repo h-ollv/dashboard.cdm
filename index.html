@@ -1317,9 +1317,7 @@ var active=
 {divergentData.length>0&&(function(){
             var poules=[...new Set(
   divergentData
-    .map(function(v){
-      return v.poule==="Equipe A" ? "Poule A" : v.poule;
-    })
+    .map(function(v){ return v.poule; })
     .filter(function(p){
       return p && p!==null && p!=="null";
     })
@@ -1333,7 +1331,9 @@ var active=
                 <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",fontWeight:700}}>PRONOS PAR MATCH</p>
                 <select className="mono" onChange={function(e){setFilterPoule(e.target.value);}} value={filterPoule||''} style={{fontSize:9,padding:"3px 6px",border:"1px solid "+P.line,background:P.card,color:P.text}}>
                   {poules.map(function(p){
-  return<option key={p} value={p}>{p}</option>;
+  return<option key={p} value={p}>
+  {p==="Equipe A" ? "Groupe A" : p.replace("Poule","Groupe")}
+</option>;
 })}
                 </select>
               </div>
