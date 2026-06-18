@@ -658,7 +658,6 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
         s.forEach(function(p,i){p.rank=i+1;});
         setPlayers(s);setNM(r.nMatchs);setPD(r.playedDates||[]);setCD(r.completedDates||[]);
         setTopProno(r.topProno||null);setTopImprobable(r.topImprobable||null);setDV(r.divergentData||[]);
-        console.log(r.divergentData[0]);
         setLoading(false);
       }).catch(function(e){setError(e.message);setLoading(false);});
     },[]);
