@@ -636,10 +636,7 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
     var _p=useState([]),players=_p[0],setPlayers=_p[1];
     var _n=useState(0),nM=_n[0],setNM=_n[1];
     var _t=useState("Classement"),tab=_t[0],setTab=_t[1];
-    React.useEffect(function(){
-  if(poules.length && !filterPoule){
-    setFilterPoule("Equipe A");
-  }
+
 },[poules]);
     var _f=useState([]),focused=_f[0],setFocused=_f[1];
     var _pd=useState([]),playedDates=_pd[0],setPD=_pd[1];
@@ -661,6 +658,7 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
         s.forEach(function(p,i){p.rank=i+1;});
         setPlayers(s);setNM(r.nMatchs);setPD(r.playedDates||[]);setCD(r.completedDates||[]);
         setTopProno(r.topProno||null);setTopImprobable(r.topImprobable||null);setDV(r.divergentData||[]);
+        console.log(r.divergentData[0]);
         setLoading(false);
       }).catch(function(e){setError(e.message);setLoading(false);});
     },[]);
