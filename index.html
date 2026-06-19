@@ -791,10 +791,21 @@ console.log(progData[0]);
 
         <div style={{paddingBottom:20,marginBottom:22,borderBottom:"1px solid "+P.line,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
           <h1 className="serif" style={{color:P.text,fontSize:38,fontWeight:400,letterSpacing:"-0.02em",lineHeight:1}}>Coupe du Monde 2026</h1>
-          <div style={{textAlign:"right"}}>
-            <p className="mono" style={{color:P.muted,fontSize:8,letterSpacing:"0.18em",textTransform:"uppercase"}}>Rattepit FC</p>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.12em",marginTop:3}}>Phase de groupes</p>
-          </div>
+          <div style={{display:"flex",marginBottom:22}}>
+          {[
+ {l:"LEADER",v:P0.name,sub:P0.points?P0.points+" pts":""},
+ {l:"MATCHS JOUÉS",v:String(nM)},
+ {l:"SÉRIE EN COURS",v:(function(){
+    var best=players
+      .filter(function(p){return p.streakHot>=2;})
+      .sort(function(a,b){return b.streakHot-a.streakHot;})[0];
+
+    return best
+      ? best.name+" · 🔥"+best.streakHot
+      : "Aucune";
+ })()}
+].map(function(k,i,a){return<div key={k.l} style={{padding:"0 18px",borderRight:i<a.length-1?"1px solid "+P.line:"none",textAlign:"center"}}><p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em",marginBottom:3}}>{k.l}</p><p className="serif" style={{color:P.text,fontSize:16,fontWeight:400,lineHeight:1}}>{k.v}</p>{k.sub&&<p className="mono" style={{color:P.muted,fontSize:8,marginTop:2}}>{k.sub}</p>}</div>;})}
+        </div>
         </div>
 
         <div style={{display:"flex",marginBottom:22}}>
