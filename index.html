@@ -421,12 +421,12 @@ function cumPtsMatch(matches,n){
       var pr10=minmax(precArr,risk.precRaw);
       var v10=minmax(volArr,risk.volRaw);
       var arch=getArchetype(a10,p10,pr10,v10);
-      var modifiers=[];
-      if(risk.last10len>=5&&risk.correct10>=7) modifiers.push("En pétard 🔥");
-      if(risk.last10len>=5&&risk.wrong10>=7) modifiers.push("En perte 🧊");
-      if(arch.canC&&v10>=60) modifiers.push("Chaotique");
-      if(pr10-p10>=20) modifiers.push("Poissard");
-      if(risk.audaceSociale>=40) modifiers.push("Rebelle");
+      var modifier=null;
+      if(risk.audaceSociale>=40) modifier="Rebelle";
+      else if(pr10-p10>=20) modifier="Poissard";
+      else if(arch.canC&&v10>=60) modifier="Chaotique";
+      else if(risk.last10len>=5&&risk.correct10>=7) modifier="En pétard";
+      else if(risk.last10len>=5&&risk.wrong10>=7) modifier="En perte";
       var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
 
 var playedM=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';}).sort(function(a,b){return (a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0);});
@@ -684,24 +684,21 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
         </div>;})}
     </div>;
   }
-function getGradient(p){
-    var a=p.audace10/100, perf=p.perf10/100, prec=p.precision10/100, vol=p.volatilite10/100;
-    var aHue=Math.round(185+a*175);
-    var aSat=Math.round(75+a*20);
-    var aL=Math.round(65-a*15);
-    var cTop="hsl("+aHue+","+aSat+"%,"+aL+"%)";
-    var pHue=Math.round(0+perf*120);
-    var pSat=Math.round(80+perf*15);
-    var pL=Math.round(52+perf*18);
-    var cMid="hsl("+pHue+","+pSat+"%,"+pL+"%)";
-    var prHue=Math.round(270-prec*30);
-    var prSat=Math.round(60-prec*30);
-    var prL=Math.round(55+prec*30);
-    var cBot="hsl("+prHue+","+prSat+"%,"+prL+"%)";
-    if(vol<=0.2) return"linear-gradient(180deg,"+cTop+" 0%,"+cMid+" 50%,"+cBot+" 100%)";
-    var s1=Math.round(25+vol*40);
-    var s2=Math.round(60+vol*30);
-    return"linear-gradient(180deg,"+cTop+" 0%,"+cTop+" "+s1+"%,"+cMid+" "+s2+"%,"+cBot+" 100%)";
+var ARCHETYPE_GRADIENTS={
+    "GOAT":"linear-gradient(180deg, #F5C842 0%, #F08A3C 45%, #E85D8A 100%)",
+    "Visionnaire":"linear-gradient(180deg, #F0883C 0%, #E8584C 50%, #D8488C 100%)",
+    "Maestro":"linear-gradient(180deg, #A8A0E8 0%, #F0EEE0 50%, #F0E0A0 100%)",
+    "Plat du Pied":"linear-gradient(180deg, #6EC8D0 0%, #3868B0 100%)",
+    "Bras Cassé":"linear-gradient(180deg, #F0944C 0%, #F0A0A8 55%, #F8EEE8 100%)",
+    "Titulaire":"linear-gradient(180deg, #F4E8A0 0%, #F0C4A0 50%, #E89878 100%)",
+    "Réserviste":"linear-gradient(180deg, #A0D0F0 0%, #88E0D8 55%, #F0F8F4 100%)",
+    "Électron Libre":"linear-gradient(180deg, #E848A0 0%, #F08838 55%, #F4D848 100%)",
+    "Fou du Bus":"linear-gradient(180deg, #E84838 0%, #F08838 55%, #F4D848 100%)",
+    "Pied Carré":"linear-gradient(180deg, #3858A0 0%, #98D0D8 100%)",
+    "Touriste":"linear-gradient(180deg, #F8F4EC 0%, #D8E4F0 100%)"
+  };
+  function getGradient(p){
+    return ARCHETYPE_GRADIENTS[p.archetype]||"linear-gradient(180deg,#E0E0E0,#F0F0F0)";
   }
   function App(){
     var _l=useState(true),loading=_l[0],setLoading=_l[1];
@@ -1323,78 +1320,72 @@ var active=
         </div>}
 
         {/* RISQUES */}
-        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em"}}>PROFILS JOUEURS · DÉGRADÉ = SIGNATURE · CLIQUER POUR COMPARER</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
-            {players.map(function(p){
-              var isSelected=focusedR.indexOf(p.name)>=0;
-              var grad=getGradient(p);
-              var idx=players.indexOf(p);
-              var col=WHEEL[idx%WHEEL.length];
-              return<div key={p.name} onClick={function(){setFocusedR(function(prev){
-                if(prev.indexOf(p.name)>=0) return prev.filter(function(x){return x!==p.name;});
-                if(prev.length>=2) return [prev[1],p.name];
-                return prev.concat([p.name]);
-              });}} style={{width:110,overflow:"hidden",cursor:"pointer",
-                border:"1px solid "+(isSelected?P.text:P.line),
-                transform:isSelected?"translateY(-4px)":"none",transition:"all 0.2s"}}>
-                <div style={{height:130,background:grad,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        {tab==="Risques"&&(function(){
+          var sel=players.find(function(p){return focusedR.indexOf(p.name)>=0;});
+          return<div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em"}}>SÉLECTIONNER UN JOUEUR</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {players.map(function(p,i){
+                var col=WHEEL[i%WHEEL.length];
+                var iF=focusedR.indexOf(p.name)>=0;
+                return<button key={p.name} onClick={function(){setFocusedR(iF?[]:[p.name]);}}
+                  style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",
+                    border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent"}}>
+                  <div style={{width:5,height:5,borderRadius:"50%",background:col}}/>
+                  <span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span>
+                </button>;
+              })}
+            </div>
+
+            {sel&&(function(){
+              var grad=getGradient(sel);
+              return<div style={{maxWidth:280,border:"1px solid "+P.line}}>
+                <div style={{height:200,background:grad,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
                   {(function(){
                     var dims=[
-                      {val:p.audace10/100,angle:-90},
-                      {val:p.perf10/100,angle:0},
-                      {val:p.precision10/100,angle:90},
-                      {val:p.volatilite10/100,angle:180}
+                      {val:sel.audace10/100,angle:-90},
+                      {val:sel.perf10/100,angle:0},
+                      {val:sel.precision10/100,angle:90},
+                      {val:sel.volatilite10/100,angle:180}
                     ];
-                    var cx=55,cy=55,r=38;
+                    var cx=90,cy=90,r=62;
                     function toRad(deg){return deg*Math.PI/180;}
                     var gridPts=function(lv){return dims.map(function(d){return(cx+r*lv*Math.cos(toRad(d.angle)))+","+(cy+r*lv*Math.sin(toRad(d.angle)));}).join(" ");};
                     var dataPts=dims.map(function(d){return(cx+r*d.val*Math.cos(toRad(d.angle)))+","+(cy+r*d.val*Math.sin(toRad(d.angle)));}).join(" ");
-                    return<svg width={110} height={110} style={{position:"absolute"}}>
-                      {[0.33,0.66,1].map(function(lv){return<polygon key={lv} points={gridPts(lv)} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={0.7}/>;}) }
-                      {dims.map(function(d,i){return<line key={i} x1={cx} y1={cy} x2={cx+r*Math.cos(toRad(d.angle))} y2={cy+r*Math.sin(toRad(d.angle))} stroke="rgba(255,255,255,0.3)" strokeWidth={0.7}/>;}) }
-                      <polygon points={dataPts} fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.9)" strokeWidth={1.5}/>
-                      {dims.map(function(d,i){return<circle key={i} cx={cx+r*d.val*Math.cos(toRad(d.angle))} cy={cy+r*d.val*Math.sin(toRad(d.angle))} r={2.5} fill="white"/>;}) }
+                    return<svg width={180} height={180} style={{position:"absolute"}}>
+                      {[0.33,0.66,1].map(function(lv){return<polygon key={lv} points={gridPts(lv)} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={1}/>;}) }
+                      {dims.map(function(d,i){return<line key={i} x1={cx} y1={cy} x2={cx+r*Math.cos(toRad(d.angle))} y2={cy+r*Math.sin(toRad(d.angle))} stroke="rgba(255,255,255,0.3)" strokeWidth={1}/>;}) }
+                      <polygon points={dataPts} fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.95)" strokeWidth={2}/>
+                      {dims.map(function(d,i){return<circle key={i} cx={cx+r*d.val*Math.cos(toRad(d.angle))} cy={cy+r*d.val*Math.sin(toRad(d.angle))} r={3.5} fill="white"/>;}) }
                     </svg>;
                   })()}
                 </div>
-                <div style={{padding:"8px 10px 10px",background:P.card}}>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:4}}>
-                    <span className="mono" style={{fontSize:7,fontWeight:700,color:P.text,background:P.bg,padding:"1px 4px"}}>{p.archetype}</span>
-                    {(p.modifiers||[]).map(function(m){return<span key={m} className="mono" style={{fontSize:7,color:P.muted,padding:"1px 4px"}}>{m}</span>;}) }
-                  </div>
-                  <p className="serif" style={{fontSize:13,color:P.text,fontWeight:400}}>{p.name}</p>
-                  <p className="mono" style={{fontSize:7,color:P.muted,marginTop:2}}>{p.points} pts</p>
+                <div style={{padding:"14px 18px",background:grad,backgroundSize:"100% 400%",backgroundPosition:"0 100%"}}>
+                  <p className="serif" style={{fontSize:20,color:"#1a1814",fontWeight:600,textAlign:"center"}}>{sel.archetype}</p>
+                  {sel.modifier&&<p className="mono" style={{fontSize:8,color:"#1a1814",textAlign:"center",letterSpacing:"0.1em",opacity:0.75,marginTop:2}}>{sel.modifier}</p>}
                 </div>
-              </div>;
-            })}
-          </div>
-          {focusedR.length>0&&<div style={{background:P.card,border:"1px solid "+P.line,padding:"16px 20px"}}>
-            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:12}}>COMPARAISON</p>
-            <div style={{display:"flex",gap:20,flexWrap:"wrap",alignItems:"flex-start"}}>
-              {focusedR.map(function(n){
-                var p=players.find(function(pl){return pl.name===n;});
-                if(!p) return null;
-                var idx=players.indexOf(p);
-                var col=WHEEL[idx%WHEEL.length];
-                var dims=[{key:"audace10",label:"Audace"},{key:"perf10",label:"Perf"},{key:"precision10",label:"Précision"},{key:"volatilite10",label:"Volatilité"}];
-                return<div key={p.name} style={{minWidth:140}}>
-                  <p className="mono" style={{fontSize:8,fontWeight:700,color:col,marginBottom:6}}>{p.name} — {p.archetype}</p>
-                  {dims.map(function(d){return<div key={d.key} style={{marginBottom:6}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <span className="mono" style={{fontSize:8,color:P.muted}}>{d.label}</span>
-                      <span className="mono" style={{fontSize:8,fontWeight:700,color:P.text}}>{p[d.key]}/100</span>
+                <div style={{padding:"16px 18px",background:P.card}}>
+                  <p className="serif" style={{fontSize:17,color:P.text,marginBottom:10}}>{sel.name}</p>
+                  {[
+                    {label:"Audace",val:sel.audace10},
+                    {label:"Performance",val:sel.perf10},
+                    {label:"Précision",val:sel.precision10},
+                    {label:"Volatilité",val:sel.volatilite10}
+                  ].map(function(s){return<div key={s.label} style={{marginBottom:8}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span className="mono" style={{fontSize:8,color:P.muted}}>{s.label}</span>
+                      <span className="mono" style={{fontSize:8,fontWeight:700,color:P.text}}>{s.val}/100</span>
                     </div>
                     <div style={{height:3,background:P.bg}}>
-                      <div style={{height:"100%",width:p[d.key]+"%",background:col}}/>
+                      <div style={{height:"100%",width:s.val+"%",background:P.text}}/>
                     </div>
-                  </div>;}) }
-                </div>;
-              })}
-            </div>
-            <button onClick={function(){setFocusedR([]);}} style={{marginTop:12,padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕ Effacer</span></button>
-          </div>}
-        </div>}
+                  </div>;})}
+                  <p className="mono" style={{fontSize:8,color:P.muted,marginTop:10}}>{sel.points} pts</p>
+                </div>
+              </div>;
+            })()}
+          </div>;
+        })()}
 
         {/* PODIUM */}
         {tab==="Podium"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
