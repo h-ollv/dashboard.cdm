@@ -184,7 +184,7 @@ function computeRisk(matches,socialMap){
   var globalBuckets = {low:0,mid:0,high:0};
 
   var aps=[];
-
+var socialSum=0,socialCnt=0;
   matches.forEach(function(m){
     var ap=getAP(m);
     if(!ap) return;
@@ -217,6 +217,8 @@ var finalAudace=
 
 aSum+=finalAudace;
 aCnt++;
+socialSum+=socialAudace;
+socialCnt++;
 
     if(ap.p<=0.30) globalBuckets.low++;
     else if(ap.p<=0.65) globalBuckets.mid++;
@@ -236,49 +238,69 @@ aCnt++;
     }
   });
 
-  var rawAudace = aCnt ? aSum/aCnt : 50;
-  var weightedAudace = wSum ? weighted/wSum : rawAudace;
+  var audaceRaw = aCnt ? aSum/aCnt : 50;
+  audaceRaw = Math.max(0, Math.min(100, audaceRaw));
 
-  // bonus "exploit isolé"
-  var variance = 0;
-  if(aps.length){
-    var mean = rawAudace;
-    aps.forEach(function(v){ variance += Math.pow(v-mean,2); });
-    variance = Math.sqrt(variance/aps.length);
-  }
+  var playedM=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';});
+  var correctM=playedM.filter(function(m){return m.correct;});
+  var perfBrute=playedM.length?(correctM.length/playedM.length):0;
+  var perfRaw=Math.min(100,perfBrute/0.65*100);
 
-  // normalisation rareté groupe
-  var total = globalBuckets.low + globalBuckets.mid + globalBuckets.high;
-  var diversityBonus = total
-    ? (globalBuckets.low - globalBuckets.high) / total * 20
-    : 0;
+  var precSum=0,precCnt=0;
+  matches.forEach(function(m){
+    if(!m.played||!m.scorePred||m.scorePred==='...'||!m.resultScore||m.resultScore==='...') return;
+    var sp=m.scorePred.toString().replace(/\s/g,'').split(/[-:]/).map(Number);
+    var sr=m.resultScore.toString().replace(/\s/g,'').split(/[-:]/).map(Number);
+    if(sp.length!==2||sr.length!==2||isNaN(sp[0])||isNaN(sp[1])||isNaN(sr[0])||isNaN(sr[1])) return;
+    precSum+=Math.max(0,1-(Math.abs(sp[0]-sr[0])+Math.abs(sp[1]-sr[1]))/6); precCnt++;
+  });
+  var precRaw=precCnt?(precSum/precCnt)*100:50;
 
-  var audace =
-    0.50 * weightedAudace +
-    0.30 * rawAudace +
-    0.20 * (50 + variance) +
-    diversityBonus;
+  var volRaw=Math.min(100,variance);
 
-  audace = Math.max(0, Math.min(100, audace));
+  var last10=playedM.sort(function(a,b){return (a.date||'')<(b.date||'')?-1:1;}).slice(-10);
+  var correct10=last10.filter(function(m){return m.correct;}).length;
+  var wrong10=last10.filter(function(m){return !m.correct;}).length;
 
-  // performance inchangée
-  var rawAdjR = 0;
-  if(pCnt){
-    rawAdjR = ((actS / pCnt) - (expS / pCnt)) * 100;
-  }
-
-  var shrinkAdjR =
-    ((actS + 1) / (pCnt + 2) - expS / Math.max(1,pCnt)) * 100;
-
-  var w = Math.min(1, pCnt / 5);
-  var adjR = rawAdjR * w + shrinkAdjR * (1 - w);
-
-  adjR = Math.max(-85, Math.min(85, adjR));
+  var socialAvg=socialCnt?socialSum/socialCnt:50;
 
   return {
-    audace: Math.round(audace),
-    adjR: Math.round(adjR)
+    audaceRaw: audaceRaw,
+    perfRaw: perfRaw,
+    precRaw: precRaw,
+    volRaw: volRaw,
+    audaceSociale: socialAvg,
+    last10len: last10.length,
+    correct10: correct10,
+    wrong10: wrong10
   };
+}
+
+var ARCHETYPES=[
+  {name:"GOAT",          canC:false, s:[95,95,95,5]},
+  {name:"Visionnaire",   canC:true,  s:[80,80,65,20]},
+  {name:"Maestro",       canC:false, s:[55,80,90,5]},
+  {name:"Plat du Pied",  canC:true,  s:[25,80,70,8]},
+  {name:"Bras Cassé",    canC:true,  s:[60,80,15,50]},
+  {name:"Titulaire",     canC:false, s:[45,55,48,22]},
+  {name:"Réserviste",    canC:false, s:[10,42,65,5]},
+  {name:"Électron Libre",canC:false, s:[80,30,20,90]},
+  {name:"Fou du Bus",    canC:true,  s:[80,5,25,50]},
+  {name:"Pied Carré",    canC:true,  s:[10,10,15,25]},
+  {name:"Touriste",      canC:false, s:[5,5,5,5]}
+];
+function getArchetype(a,p,pr,v){
+  var s=[a,p,pr,v];
+  var dists=ARCHETYPES.map(function(arch){
+    var d=Math.sqrt(Math.pow(s[0]-arch.s[0],2)+Math.pow(s[1]-arch.s[1],2)+Math.pow(s[2]-arch.s[2],2)+Math.pow(s[3]-arch.s[3],2));
+    return{d:d,arch:arch};
+  }).sort(function(x,y){return x.d-y.d;});
+  var best=dists[0];
+  if(best.arch.name==="Titulaire"&&dists.length>1){
+    var second=dists[1];
+    if(best.d>=second.d-15) return second.arch;
+  }
+  return best.arch;
 }
 
 window.__loadAllData=function(){
@@ -369,11 +391,36 @@ function cumPtsMatch(matches,n){
   },0);
 }
 
-    var out=classement.map(function(e){
+    var rawAll=classement.map(function(e){
+    var matches=pData[norm(e.name)]||[];
+    return computeRisk(matches,socialMap);
+  });
+  var audArr=rawAll.map(function(x){return x.audaceRaw;});
+  var perfArr=rawAll.map(function(x){return x.perfRaw;});
+  var precArr=rawAll.map(function(x){return x.precRaw;});
+  var volArr=rawAll.map(function(x){return x.volRaw;});
+  function minmax(arr,v){
+    var mn=Math.min.apply(null,arr),mx=Math.max.apply(null,arr);
+    if(mx===mn) return 50;
+    return Math.round((v-mn)/(mx-mn)*100);
+  }
+
+  var out=classement.map(function(e){
       var matches=pData[norm(e.name)]||[];
       var total_points=e.points||0;
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
-      var risk=computeRisk(matches,socialMap);
+      var risk=rawAll[classement.indexOf(e)];
+      var a10=minmax(audArr,risk.audaceRaw);
+      var p10=minmax(perfArr,risk.perfRaw);
+      var pr10=minmax(precArr,risk.precRaw);
+      var v10=minmax(volArr,risk.volRaw);
+      var arch=getArchetype(a10,p10,pr10,v10);
+      var modifiers=[];
+      if(risk.last10len>=5&&risk.correct10>=7) modifiers.push("En pétard 🔥");
+      if(risk.last10len>=5&&risk.wrong10>=7) modifiers.push("En perte 🧊");
+      if(arch.canC&&v10>=60) modifiers.push("Chaotique");
+      if(pr10-p10>=20) modifiers.push("Poissard");
+      if(risk.audaceSociale>=40) modifiers.push("Rebelle");
       var missedPronos=matches.filter(function(m){return m.played&&(!m.prono||m.prono==='...');}).length;
 
 var playedM=matches.filter(function(m){return m.played&&m.prono&&m.prono!=='...';}).sort(function(a,b){return (a.date||'')<(b.date||'')?-1:((a.date||'')>(b.date||'')?1:0);});
@@ -406,7 +453,9 @@ playedM.forEach(function(m){
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
         boosters:booster_pts,
-        audace:risk.audace, adjR:risk.adjR,
+        audace:Math.round(risk.audaceRaw), adjR:Math.round((risk.perfRaw/100*170)-85),
+        audace10:a10, perf10:p10, precision10:pr10, volatilite10:v10,
+        archetype:arch.name, modifiers:modifiers,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
         streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot,
@@ -629,7 +678,25 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
         </div>;})}
     </div>;
   }
-
+function getGradient(p){
+    var a=p.audace10/100, perf=p.perf10/100, prec=p.precision10/100, vol=p.volatilite10/100;
+    var aHue=Math.round(185+a*175);
+    var aSat=Math.round(75+a*20);
+    var aL=Math.round(65-a*15);
+    var cTop="hsl("+aHue+","+aSat+"%,"+aL+"%)";
+    var pHue=Math.round(0+perf*120);
+    var pSat=Math.round(80+perf*15);
+    var pL=Math.round(52+perf*18);
+    var cMid="hsl("+pHue+","+pSat+"%,"+pL+"%)";
+    var prHue=Math.round(270-prec*30);
+    var prSat=Math.round(60-prec*30);
+    var prL=Math.round(55+prec*30);
+    var cBot="hsl("+prHue+","+prSat+"%,"+prL+"%)";
+    if(vol<=0.2) return"linear-gradient(180deg,"+cTop+" 0%,"+cMid+" 50%,"+cBot+" 100%)";
+    var s1=Math.round(25+vol*40);
+    var s2=Math.round(60+vol*30);
+    return"linear-gradient(180deg,"+cTop+" 0%,"+cTop+" "+s1+"%,"+cMid+" "+s2+"%,"+cBot+" 100%)";
+  }
   function App(){
     var _l=useState(true),loading=_l[0],setLoading=_l[1];
     var _e=useState(null),error=_e[0],setError=_e[1];
@@ -1250,49 +1317,77 @@ var active=
         </div>}
 
         {/* RISQUES */}
-        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:P.card,padding:"18px 22px"}}>
-            <div style={{position:"relative",height:420}}>
-              {ZONES.map(function(z){
-                var count=players.filter(function(p){return gz({x:p.audace,y:p.adjR})===z.key;}).length;
-                var isTop=z.y1>=0;
-                var pos=Object.assign({position:"absolute"},z.corner);
-                return<div key={z.key} style={Object.assign({},pos,{textAlign:z.align,pointerEvents:"none",zIndex:2,padding:"6px 10px",minWidth:90,border:"1px solid "+z.c+(isTop?"":"88"),background:isTop?z.c+"28":P.card+"F0"})}>
-                  <p className="mono" style={{color:z.c,fontSize:8,fontWeight:700,letterSpacing:"0.14em",marginBottom:3}}>{z.label}</p>
-                  <p className="mono" style={{color:z.c,fontSize:20,fontWeight:700,lineHeight:1}}>{count}</p>
-                  <p className="mono" style={{color:z.c,fontSize:7,marginTop:2,opacity:0.8}}>{z.sub}</p>
+        {tab==="Risques"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em"}}>PROFILS JOUEURS · DÉGRADÉ = SIGNATURE · CLIQUER POUR COMPARER</p>
+          <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
+            {players.map(function(p){
+              var isSelected=focusedR.indexOf(p.name)>=0;
+              var grad=getGradient(p);
+              var idx=players.indexOf(p);
+              var col=WHEEL[idx%WHEEL.length];
+              return<div key={p.name} onClick={function(){setFocusedR(function(prev){
+                if(prev.indexOf(p.name)>=0) return prev.filter(function(x){return x!==p.name;});
+                if(prev.length>=2) return [prev[1],p.name];
+                return prev.concat([p.name]);
+              });}} style={{width:110,overflow:"hidden",cursor:"pointer",
+                border:"1px solid "+(isSelected?P.text:P.line),
+                transform:isSelected?"translateY(-4px)":"none",transition:"all 0.2s"}}>
+                <div style={{height:130,background:grad,position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {(function(){
+                    var dims=[
+                      {val:p.audace10/100,angle:-90},
+                      {val:p.perf10/100,angle:0},
+                      {val:p.precision10/100,angle:90},
+                      {val:p.volatilite10/100,angle:180}
+                    ];
+                    var cx=55,cy=55,r=38;
+                    function toRad(deg){return deg*Math.PI/180;}
+                    var gridPts=function(lv){return dims.map(function(d){return(cx+r*lv*Math.cos(toRad(d.angle)))+","+(cy+r*lv*Math.sin(toRad(d.angle)));}).join(" ");};
+                    var dataPts=dims.map(function(d){return(cx+r*d.val*Math.cos(toRad(d.angle)))+","+(cy+r*d.val*Math.sin(toRad(d.angle)));}).join(" ");
+                    return<svg width={110} height={110} style={{position:"absolute"}}>
+                      {[0.33,0.66,1].map(function(lv){return<polygon key={lv} points={gridPts(lv)} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={0.7}/>;}) }
+                      {dims.map(function(d,i){return<line key={i} x1={cx} y1={cy} x2={cx+r*Math.cos(toRad(d.angle))} y2={cy+r*Math.sin(toRad(d.angle))} stroke="rgba(255,255,255,0.3)" strokeWidth={0.7}/>;}) }
+                      <polygon points={dataPts} fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.9)" strokeWidth={1.5}/>
+                      {dims.map(function(d,i){return<circle key={i} cx={cx+r*d.val*Math.cos(toRad(d.angle))} cy={cy+r*d.val*Math.sin(toRad(d.angle))} r={2.5} fill="white"/>;}) }
+                    </svg>;
+                  })()}
+                </div>
+                <div style={{padding:"8px 10px 10px",background:P.card}}>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:4}}>
+                    <span className="mono" style={{fontSize:7,fontWeight:700,color:P.text,background:P.bg,padding:"1px 4px"}}>{p.archetype}</span>
+                    {(p.modifiers||[]).map(function(m){return<span key={m} className="mono" style={{fontSize:7,color:P.muted,padding:"1px 4px"}}>{m}</span>;}) }
+                  </div>
+                  <p className="serif" style={{fontSize:13,color:P.text,fontWeight:400}}>{p.name}</p>
+                  <p className="mono" style={{fontSize:7,color:P.muted,marginTop:2}}>{p.points} pts</p>
+                </div>
+              </div>;
+            })}
+          </div>
+          {focusedR.length>0&&<div style={{background:P.card,border:"1px solid "+P.line,padding:"16px 20px"}}>
+            <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.14em",marginBottom:12}}>COMPARAISON</p>
+            <div style={{display:"flex",gap:20,flexWrap:"wrap",alignItems:"flex-start"}}>
+              {focusedR.map(function(n){
+                var p=players.find(function(pl){return pl.name===n;});
+                if(!p) return null;
+                var idx=players.indexOf(p);
+                var col=WHEEL[idx%WHEEL.length];
+                var dims=[{key:"audace10",label:"Audace"},{key:"perf10",label:"Perf"},{key:"precision10",label:"Précision"},{key:"volatilite10",label:"Volatilité"}];
+                return<div key={p.name} style={{minWidth:140}}>
+                  <p className="mono" style={{fontSize:8,fontWeight:700,color:col,marginBottom:6}}>{p.name} — {p.archetype}</p>
+                  {dims.map(function(d){return<div key={d.key} style={{marginBottom:6}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                      <span className="mono" style={{fontSize:8,color:P.muted}}>{d.label}</span>
+                      <span className="mono" style={{fontSize:8,fontWeight:700,color:P.text}}>{p[d.key]}/100</span>
+                    </div>
+                    <div style={{height:3,background:P.bg}}>
+                      <div style={{height:"100%",width:p[d.key]+"%",background:col}}/>
+                    </div>
+                  </div>;}) }
                 </div>;
               })}
-              <ResponsiveContainer width="100%" height={420}>
-                <ScatterChart margin={{top:24,right:48,left:48,bottom:30}}>
-                  {ZONES.map(function(z){return<ReferenceArea key={z.key} x1={z.x1} x2={z.x2} y1={z.y1} y2={z.y2} fill={z.c} fillOpacity={0.10}/>;})}<ReferenceLine x={50} stroke={P.muted} strokeDasharray="4 4" strokeWidth={1}/><ReferenceLine y={0} stroke={P.muted} strokeDasharray="3 3" strokeWidth={1.5}/>
-                  <XAxis type="number" dataKey="x" domain={[-10,110]} tick={false} axisLine={{stroke:P.line}} tickLine={false} label={{value:"← PRUDENT   AUDACIEUX →",position:"insideBottom",offset:-18,fontSize:8,fill:P.muted,fontFamily:"'Space Mono',monospace"}}/>
-                  <YAxis type="number" dataKey="y" domain={[-85,52]} tick={false} axisLine={false} tickLine={false}/>
-                  <Tooltip cursor={{stroke:P.line,strokeDasharray:"3 3"}} content={function(p){
-  if(!p.active||!p.payload||!p.payload.length)return null;
-  var d=p.payload[0].payload;
-  var reussite=nM>0?Math.round(d.correct/nM*100):0;
-  var sign=d.adjR>=0?"+":"";
-  var zKey=gz({x:d.audace,y:d.adjR});
-  var zLabels={platdupied:"PLAT DU PIED",genie:"GÉNIE",timberland:"TIMBERLAND",foudubas:"FOU DU BUS"};
-  var zCol=ZC[zKey];
-  return<div style={Object.assign({},TT)}>
-    <p style={{fontWeight:700,marginBottom:4}}>{d.name}</p>
-    <p className="mono" style={{color:zCol,fontSize:8,fontWeight:700,letterSpacing:"0.12em",marginBottom:8}}>{zLabels[zKey]}</p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Audace : <span style={{color:P.text,fontWeight:700}}>{d.audace}%</span></p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Réussite : <span style={{color:P.text,fontWeight:700}}>{reussite}%</span></p>
-    <p style={{color:P.muted,margin:"3px 0"}}>Perf. ajustée : <span style={{color:d.adjR>=0?"#A8C490":"#E8A098",fontWeight:700}}>{sign}{d.adjR}%</span></p>
-  </div>;
-}}/>
-                  <Scatter data={SCAT} shape={function(p){var z=gz(p.payload);var on=focusedR.length===0||focusedR.indexOf(p.payload.name)>=0;return<g><circle cx={p.cx} cy={p.cy} r={on?6:3} fill={ZC[z]} stroke="#fff" strokeWidth={1.5} fillOpacity={on?0.9:0.06}/></g>;}}/>
-                </ScatterChart>
-              </ResponsiveContainer>
             </div>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {players.map(function(p,i){var col=WHEEL[i%WHEEL.length],iF=focusedR.indexOf(p.name)>=0,on=focusedR.length===0||iF;return<button key={p.name} onClick={function(){setFocusedR(function(prev){return prev.indexOf(p.name)>=0?prev.filter(function(x){return x!==p.name;}):prev.concat([p.name]);});}} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 8px",cursor:"pointer",border:"1px solid "+(iF?col:P.line),background:iF?col+"18":"transparent",opacity:on?1:0.22}}><div style={{width:5,height:5,borderRadius:"50%",background:col}}/><span className="mono" style={{color:iF?col:P.text,fontSize:8,fontWeight:iF?700:400}}>{p.name}</span></button>;})}
-            {focusedR.length>0&&<button onClick={function(){setFocusedR([]);}} style={{padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕</span></button>}
-          </div>
+            <button onClick={function(){setFocusedR([]);}} style={{marginTop:12,padding:"2px 8px",border:"1px solid "+P.muted,background:"transparent",cursor:"pointer"}}><span className="mono" style={{color:P.muted,fontSize:8}}>✕ Effacer</span></button>
+          </div>}
         </div>}
 
         {/* PODIUM */}
