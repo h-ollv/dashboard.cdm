@@ -237,6 +237,12 @@ socialCnt++;
       pCnt++;
     }
   });
+  var meanForVar = aps.length ? aps.reduce(function(s,v){return s+v;},0)/aps.length : 50;
+  var variance = 0;
+  if(aps.length){
+    var sq=aps.reduce(function(s,v){return s+Math.pow(v-meanForVar,2);},0)/aps.length;
+    variance=Math.sqrt(sq);
+  }
 
   var audaceRaw = aCnt ? aSum/aCnt : 50;
   audaceRaw = Math.max(0, Math.min(100, audaceRaw));
