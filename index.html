@@ -932,27 +932,31 @@ console.log(progData[0]);
   )}
 </div>
                 <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
-  {p.streakHot>=2&&(function(){
-    var col="#FF002D";
-    return<span className="mono" style={{display:"flex",alignItems:"center",gap:3,marginRight:6,fontSize:9,fontWeight:700,color:col}}>
-      <span style={{display:"flex",gap:1,alignItems:"flex-end"}}>
-        {[0,1,2].map(function(idx){return<span key={idx} style={{width:2,height:4+idx*2,background:col,display:"inline-block"}}/>;})}
-      </span>
-      ×{p.streakHot}
-    </span>;
-  })()
-}
+  {p.streakHot>=2&&
+    <span style={{
+      marginRight:6,
+      fontSize:9,
+      fontWeight:700,
+      padding:"2px 5px",
+      background:"#7CC47C30",
+      color:"#4a8a4a"
+    }}>
+      🔥{p.streakHot}
+    </span>
+  }
 
-  {p.streakCold>=2&&(function(){
-    var col="#00B7FF";
-    return<span className="mono" style={{display:"flex",alignItems:"center",gap:3,marginRight:6,fontSize:9,fontWeight:700,color:col}}>
-      <span style={{display:"flex",gap:1,alignItems:"flex-end"}}>
-        {[0,1,2].map(function(idx){return<span key={idx} style={{width:2,height:8-idx*2,background:col,display:"inline-block"}}/>;})}
-      </span>
-      ×{p.streakCold}
-    </span>;
-  })()
-}
+  {p.streakCold>=2&&
+    <span style={{
+      marginRight:6,
+      fontSize:9,
+      fontWeight:700,
+      padding:"2px 5px",
+      background:"#E8787830",
+      color:"#b05050"
+    }}>
+      🧊{p.streakCold}
+    </span>
+  }
 
   <span style={{display:"inline-flex",alignItems:"center",gap:4}}>
   {p.correct}/{nM}
