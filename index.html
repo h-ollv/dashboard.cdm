@@ -441,9 +441,6 @@ for(var si=playedM.length-1;si>=0;si--){
   }
 }
 
-var last5=playedM.slice(-5);
-      var last5Pattern=last5.map(function(m){return m.points>0;});
-      while(last5Pattern.length<5) last5Pattern.unshift(null);
 var maxHot=0,maxCold=0;
 var curHot=0,curCold=0;
 
@@ -466,7 +463,7 @@ playedM.forEach(function(m){
         audace10:a10, perf10:p10, precision10:pr10, volatilite10:v10,
         archetype:arch.name, modifier:modifier,
         missedPronos:missedPronos, nMatchs:nMatchsJoues,
-        streakHot:streakHot, streakCold:streakCold, last5Pattern:last5Pattern,
+        streakHot:streakHot, streakCold:streakCold,
         maxHot:maxHot,
 maxCold:maxCold,
 lastMatchGain: playedM.length ? (playedM[playedM.length-1].points||0) : 0,
@@ -659,7 +656,7 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
   muted:"#9C9A97",
   line:"#E0DED8"
 };
-  var WHEEL=["#00B757","#C3D26E","00B7FF","2285C7","A60000","FF0000","FC1896","FFB5FE","FFE95D","FE7253"];
+  var WHEEL=["#00B757","#C3D26E","#00B7FF","#2285C7","#A60000","#FF0000","#FC1896","#FFB5FE","#FFE95D","#FE7253"];
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
@@ -893,7 +890,8 @@ console.log(progData[0]);
               var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
               return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
                 <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
-                <p className="serif" style={{color:P.text,fontSize:22,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
+                <p className="mono" style={{color:cs[i],fontSize:8,letterSpacing:"0.2em",marginBottom:4}}>#{i+1}</p>
+                <p className="serif" style={{color:P.text,fontSize:17,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
                   {i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11}}>🔥{leaderStreak}</span>}
                   <span
@@ -974,26 +972,63 @@ console.log(progData[0]);
           <div style={{display:"flex",flexDirection:"column"}}>
             {players.slice(3).map(function(p,i){
               var rk=i+4,last=rk>players.length-3,c=WHEEL[rk%WHEEL.length];
-              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F4C8B822":"transparent"}}>
-                <span className="mono" style={{color:P.muted,fontSize:8,width:20,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
+              return<div key={p.name} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#F4C8B822":"transparent"}}>
+                <span className="mono" style={{color:P.muted,fontSize:8,width:22,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
                 <div style={{width:5,height:5,borderRadius:"50%",background:last?"#E89898":c,flexShrink:0}}/>
-                <span className="serif" style={{color:last?"#C07060":P.text,fontSize:13,width:90,flexShrink:0,display:"flex",alignItems:"center",gap:5,overflow:"hidden"}}>
+                <span className="serif" style={{color:last?"#C07060":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
-                  {p.delta!==0&&<span className="mono" style={{color:p.delta>0?"#7CC47C":"#E87878",fontSize:8}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>}
+                  <span
+  className="mono"
+  style={{
+    color:
+      p.delta>0 ? "#A8C490" :
+      p.delta<0 ? "#E8A098" :
+      "#C9A84C",
+    fontSize:8
+  }}
+>
+  {p.delta>0 ? "↑"+Math.abs(p.delta) :
+   p.delta<0 ? "↓"+Math.abs(p.delta) :
+   "="}
+</span>
                 </span>
-                <div style={{display:"flex",gap:2,width:54,flexShrink:0}}>
-                  {(p.last5Pattern||[]).map(function(v,idx){
-                    var style={width:6,height:6,borderRadius:"50%",flexShrink:0};
-                    if(v===null) style.background=P.line;
-                    else if(v) style.background=c;
-                    else{style.background="transparent";style.border="1px solid "+P.muted;}
-                    return<div key={idx} style={style}/>;
-                  })}
-                </div>
-                <span className="mono" style={{color:P.muted,fontSize:8,width:42,flexShrink:0,textAlign:"right"}}>{p.correct} corr.</span>
-                {p.boosters>0?<span className="mono" style={{fontSize:7,fontWeight:700,background:"linear-gradient(90deg,#D2F13660,transparent)",padding:"1px 5px",color:"#7a8a10",width:54,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:54,flexShrink:0}}/>}
-                <span className="mono" style={{color:last?"#C07060":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
-                <span className="mono" style={{color:"#7CC47C",fontSize:8,width:28,textAlign:"left",flexShrink:0,paddingLeft:4}}>{p.lastMatchGain>0?"+"+p.lastMatchGain:""}</span>
+                <div style={{
+  display:"flex",
+  alignItems:"center",
+  gap:6,
+  width:72,
+  justifyContent:"flex-end",
+  flexShrink:0
+}}>
+  {(p.streakHot>=2||p.streakCold>=2)&&(
+    <span
+      className="mono"
+      style={{
+        fontSize:7,
+        fontWeight:700,
+        padding:"1px 4px",
+        background:p.streakHot>=2?"#A8C49030":"#9BB6C930",
+        color:p.streakHot>=2?"#5a7a4a":"#3a5a78"
+      }}
+    >
+      {p.streakHot>=2?"🔥"+p.streakHot:"🧊"+p.streakCold}
+    </span>
+  )}
+
+  <span
+    className="mono"
+    style={{
+      color:P.muted,
+      fontSize:8
+    }}
+  >
+    {p.correct}/{nM}
+  </span>
+</div>
+
+{p.boosters>0?<span className="mono" style={{fontSize:7,background:"linear-gradient(90deg,#ECA0B838,transparent)",padding:"1px 5px",color:P.muted,width:48,flexShrink:0,textAlign:"right"}}>+{p.boosters} bst</span>:<span style={{width:48,flexShrink:0}}/>}
+<span className="mono" style={{color:last?"#C09090":P.text,fontSize:13,fontWeight:700,width:36,textAlign:"right",flexShrink:0}}>{p.points}</span>
+<span className="mono" style={{color:"#A8C490",fontSize:8,width:28,textAlign:"left",flexShrink:0,paddingLeft:4}}>{p.lastMatchGain>0?"+"+p.lastMatchGain:""}</span>
               </div>;
             })}
           </div>
