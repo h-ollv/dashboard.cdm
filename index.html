@@ -892,17 +892,16 @@ console.log(progData[0]);
               var gs=["linear-gradient(135deg,#F4C4A040,#FDFCF9)","linear-gradient(135deg,#EEE0A040,#FDFCF9)","linear-gradient(135deg,#C8E8B040,#FDFCF9)"];
               var cs=[WHEEL[0],WHEEL[2],WHEEL[3]];
               return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
-                <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:34,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
-                <p className="serif" style={{color:P.text,fontSize:22,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
+                <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:32,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
+                <p className="serif" style={{color:P.text,fontSize:24,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
                   {p.name}
-                  {i===0&&leaderStreak>=2&&<span className="mono" style={{fontSize:11}}>🔥{leaderStreak}</span>}
                   <span
   className="mono"
   style={{
     color:
-      p.delta>0 ? "#7CC47C" :
-      p.delta<0 ? "#E87878" :
-      "#C9A84C",
+      p.delta>0 ? "#00B757" :
+      p.delta<0 ? "#A60000" :
+      "#1A1814",
     fontSize:9
   }}
 >
@@ -912,7 +911,7 @@ console.log(progData[0]);
 </span>
                 </p>
                 <div style={{marginTop:4}}>
-  <p className="mono" style={{color:P.text,fontSize:22,fontWeight:700,lineHeight:1,display:"flex",alignItems:"baseline",gap:6}}>
+  <p className="mono" style={{color:P.text,fontSize:20,fontWeight:700,lineHeight:1,display:"flex",alignItems:"baseline",gap:6}}>
     {p.points}
     <span style={{fontSize:9,color:P.muted,fontWeight:400}}>PTS</span>
   </p>
@@ -921,27 +920,37 @@ console.log(progData[0]);
     <p
       className="mono"
       style={{
-        color:P.text,
-        fontSize:8,
+        color:"#00B757",
+        fontSize:9,
         fontWeight:700,
         marginTop:3
       }}
     >
-      +{p.lastMatchGain} pts
+      +{p.lastMatchGain} PTS
     </p>
   )}
 </div>
                 <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
+
+  <span style={{display:"inline-flex",alignItems:"center",gap:4}}>
+  {p.correct}/{nM}
+</span>
+
+  {p.boosters>0&&
+    <span style={{marginLeft:6,background:"#F7F4EF",padding:"1px 5px"}}>
+      +{Math.round(p.boosters/50)} BOOST
+    </span>
+  }
   {p.streakHot>=2&&
     <span style={{
       marginRight:6,
       fontSize:9,
       fontWeight:700,
       padding:"2px 5px",
-      background:"#7CC47C30",
-      color:"#4a8a4a"
+      background:"#F7F4EF",
+      color:"#9C9A97"
     }}>
-      🔥{p.streakHot}
+      {p.streakHot} 🔥
     </span>
   }
 
@@ -951,20 +960,10 @@ console.log(progData[0]);
       fontSize:9,
       fontWeight:700,
       padding:"2px 5px",
-      background:"#E8787830",
-      color:"#b05050"
+      background:"#F7F4EF",
+      color:"#9C9A97"
     }}>
-      🧊{p.streakCold}
-    </span>
-  }
-
-  <span style={{display:"inline-flex",alignItems:"center",gap:4}}>
-  {p.correct}/{nM}
-</span>
-
-  {p.boosters>0&&
-    <span style={{marginLeft:6,background:"linear-gradient(90deg,#F0A8C038,transparent)",padding:"1px 5px"}}>
-      +{p.boosters} boost
+      {p.streakCold} 🧊
     </span>
   }
 </p>
