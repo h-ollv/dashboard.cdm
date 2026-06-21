@@ -976,18 +976,18 @@ console.log(progData[0]);
               var rk=i+4,last=rk>players.length-3,c=WHEEL[rk%WHEEL.length];
               return<div key={p.name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#C8A0A018":"transparent"}}>
                 <span className="mono" style={{color:P.muted,fontSize:8,width:20,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
+                {p.delta!==0
+                    ?<span className="mono" style={{color:p.delta>0?"#00B757":"#A60000",fontSize:8,flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>
+                    :<span className="mono" style={{color:"#1A1814",fontSize:8,flexShrink:0}}>=</span>}
                 <div style={{width:5,height:5,borderRadius:"50%",background:last?"#C8A0A0":c,flexShrink:0}}/>
                 <span className="serif" style={{color:last?"#A88080":P.text,fontSize:13,flex:1,display:"flex",alignItems:"center",gap:5,overflow:"hidden",minWidth:0}}>
                   <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
-                  {p.delta!==0
-                    ?<span className="mono" style={{color:p.delta>0?"#00B757":"#A60000",fontSize:8,flexShrink:0}}>{p.delta>0?"↑":"↓"}{Math.abs(p.delta)}</span>
-                    :<span className="mono" style={{color:"#1A1814",fontSize:8,flexShrink:0}}>=</span>}
                 </span>
-                {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",background:p.streakHot>=2?"#FFC5B8":"#B8EBFF",color:p.streakHot>=2?"#FE7253":"#00B7FF",flexShrink:0}}>{p.streakHot>=2?"🔥"+p.streakHot:"🧊"+p.streakCold}</span>}
+                {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",background:p.streakHot>=2?"#F7F4EF":"#F7F4EF",color:p.streakHot>=2?"#9C9A97":"#9C9A97",flexShrink:0}}>{p.streakHot>=2?"🔥 "+p.streakHot:"🧊 "+p.streakCold}</span>}
+                {p.boosters>0?<span className="mono" style={{fontSize:7,fontWeight:700,background:"#F7F4EF",padding:"2px 8px",color:"#9C9A97",flexShrink:0,whiteSpace:"nowrap"}}>+{Math.round(p.boosters/50)} BOOST</span>:<span style={{width:60,flexShrink:0}}/>}
                 <span className="mono" style={{color:P.muted,fontSize:8,flexShrink:0,textAlign:"right"}}>{p.correct}/{nM}</span>
                 <span className="mono" style={{color:last?"#A88080":P.text,fontSize:13,fontWeight:700,flexShrink:0,textAlign:"right"}}>{p.points}</span>
                 <span className="mono" style={{color:"#00B757",fontSize:8,flexShrink:0,minWidth:24}}>{p.lastMatchGain>0?"+"+p.lastMatchGain:""}</span>
-                {p.boosters>0?<span className="mono" style={{fontSize:7,fontWeight:700,background:"linear-gradient(90deg,#FC1896,#FFB5FE)",padding:"2px 8px",color:"#fff",flexShrink:0,whiteSpace:"nowrap"}}>+{Math.round(p.boosters/50)} BOOSTERS</span>:<span style={{width:60,flexShrink:0}}/>}
               </div>;
             })}
           </div>
