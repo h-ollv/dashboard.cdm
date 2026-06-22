@@ -889,8 +889,7 @@ console.log(progData[0]);
         {tab==="Classement"&&<div style={{background:P.card,padding:"18px 22px"}}>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             {players.slice(0,3).map(function(p,i){
-              var idx=players.indexOf(p);
-              var pCol=WHEEL[idx%WHEEL.length];
+              var pCol=WHEEL[players.indexOf(p)%WHEEL.length];
               var gs=[pCol+"30",pCol+"30",pCol+"30"];
               var cs=[pCol,pCol,pCol];
               return<div key={p.name} style={{flex:1,border:"1px solid "+P.line,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
@@ -945,10 +944,10 @@ console.log(progData[0]);
   }
   {p.streakHot>=2&&
     <span style={{
-      marginRight:6,
+      marginLeft:6,
       fontSize:9,
-      fontWeight:700,
-      padding:"2px 5px",
+      fontWeight:400,
+      padding:"1px 5px",
       background:"#F7F4EF",
       color:"#9C9A97"
     }}>
@@ -958,10 +957,10 @@ console.log(progData[0]);
 
   {p.streakCold>=2&&
     <span style={{
-      marginRight:6,
+      marginLeft:6,
       fontSize:9,
-      fontWeight:700,
-      padding:"2px 5px",
+      fontWeight:400,
+      padding:"1px 5px",
       background:"#F7F4EF",
       color:"#9C9A97"
     }}>
@@ -974,7 +973,7 @@ console.log(progData[0]);
           </div>
           <div style={{display:"flex",flexDirection:"column"}}>
             {players.slice(3).map(function(p,i){
-              var rk=i+4,last=rk>players.length-3,c=WHEEL[rk%WHEEL.length];
+              var rk=i+4,last=rk>players.length-3,c=WHEEL[players.indexOf(p)%WHEEL.length];
               return<div key={p.name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderBottom:"1px solid "+P.line+"44",background:last?"#C8A0A018":"transparent"}}>
                 <span className="mono" style={{color:P.muted,fontSize:9,flexShrink:0}}>{("0"+rk).slice(-2)}</span>
                 {p.delta!==0
@@ -984,8 +983,8 @@ console.log(progData[0]);
                 <span className="serif" style={{color:last?"#A88080":P.text,fontSize:16,flex:1,display:"flex",alignItems:"center",gap:5,overflow:"hidden",minWidth:0}}>
                   <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
                 </span>
-                {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:700,padding:"1px 4px",background:p.streakHot>=2?"#F7F4EF":"#F7F4EF",color:p.streakHot>=2?"#9C9A97":"#9C9A97",flexShrink:0}}>{p.streakHot>=2?p.streakHot+" 🔥":p.streakCold+" 🧊"}</span>}
-                {p.boosters>0?<span className="mono" style={{fontSize:8,fontWeight:700,background:"#F7F4EF",padding:"2px 8px",color:"#9C9A97",flexShrink:0,whiteSpace:"nowrap"}}>+{Math.round(p.boosters/50)} BOOST</span>:<span style={{width:60,flexShrink:0}}/>}
+                {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:400,padding:"1px 4px",background:p.streakHot>=2?"#F7F4EF":"#F7F4EF",color:p.streakHot>=2?"#9C9A97":"#9C9A97",flexShrink:0}}>{p.streakHot>=2?p.streakHot+" 🔥":p.streakCold+" 🧊"}</span>}
+                {p.boosters>0?<span className="mono" style={{fontSize:8,fontWeight:400,background:"#F7F4EF",padding:"2px 8px",color:"#9C9A97",flexShrink:0,whiteSpace:"nowrap"}}>+{Math.round(p.boosters/50)} BOOST</span>:<span style={{width:60,flexShrink:0}}/>}
                 <span className="mono" style={{color:P.muted,fontSize:9,flexShrink:0,width:32,textAlign:"right"}}>{p.correct}/{nM}</span>
                 <span className="mono" style={{color:last?"#A88080":P.text,fontSize:13,width:40,fontWeight:700,flexShrink:0,textAlign:"right"}}>{p.points}</span>
                 <span className="mono" style={{color:"#00B757",fontSize:9,flexShrink:0,minWidth:24}}>{p.lastMatchGain>0?"+"+p.lastMatchGain:""}</span>
