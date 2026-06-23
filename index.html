@@ -931,7 +931,7 @@ console.log(progData[0]);
     </p>
   )}
 </div>
-                <p className="mono" style={{color:P.muted,fontSize:8,marginTop:6}}>
+                <p className="mono" style={{color:P.muted,fontSize:9,marginTop:6}}>
 
   <span style={{display:"inline-flex",alignItems:"center",gap:4}}>
   {p.correct}/{nM}
@@ -983,8 +983,8 @@ console.log(progData[0]);
                 <span className="serif" style={{color:last?"#A88080":P.text,fontSize:16,flex:1,display:"flex",alignItems:"center",gap:5,overflow:"hidden",minWidth:0}}>
                   <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
                 </span>
-                {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:7,fontWeight:400,padding:"1px 4px",background:p.streakHot>=2?"#F7F4EF":"#F7F4EF",color:p.streakHot>=2?"#9C9A97":"#9C9A97",flexShrink:0}}>{p.streakHot>=2?p.streakHot+" 🔥":p.streakCold+" 🧊"}</span>}
-                {p.boosters>0?<span className="mono" style={{fontSize:8,fontWeight:400,background:"#F7F4EF",padding:"2px 8px",color:"#9C9A97",flexShrink:0,whiteSpace:"nowrap"}}>+{Math.round(p.boosters/50)} BOOST</span>:<span style={{width:60,flexShrink:0}}/>}
+                {(p.streakHot>=2||p.streakCold>=2)&&<span className="mono" style={{fontSize:9,fontWeight:400,padding:"1px 5px",background:p.streakHot>=2?"#F7F4EF":"#F7F4EF",color:p.streakHot>=2?"#9C9A97":"#9C9A97",flexShrink:0}}>{p.streakHot>=2?p.streakHot+" 🔥":p.streakCold+" 🧊"}</span>}
+                {p.boosters>0?<span className="mono" style={{fontSize:9,fontWeight:400,background:"#F7F4EF",padding:"1px 5px",color:"#9C9A97",flexShrink:0,whiteSpace:"nowrap"}}>+{Math.round(p.boosters/50)} BOOST</span>:<span style={{width:60,flexShrink:0}}/>}
                 <span className="mono" style={{color:P.muted,fontSize:9,flexShrink:0,width:32,textAlign:"right"}}>{p.correct}/{nM}</span>
                 <span className="mono" style={{color:last?"#A88080":P.text,fontSize:13,width:40,fontWeight:700,flexShrink:0,textAlign:"right"}}>{p.points}</span>
                 <span className="mono" style={{color:"#00B757",fontSize:9,flexShrink:0,minWidth:24}}>{p.lastMatchGain>0?"+"+p.lastMatchGain:""}</span>
