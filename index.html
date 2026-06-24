@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -660,16 +661,6 @@ var divergentData=Object.values(matchVotes).sort(function(a,b){
   line:"#E0DED8"
 };
   var WHEEL=["#00B757","#C3D26E","#00B7FF","#2285C7","#A60000","#FF002D","#FC1896","#FFB5FE","#FFE95D","#FE7253"];
-  function colorFromName(name){
-  var hash=0;
-
-  for(var i=0;i<name.length;i++){
-    hash=((hash<<5)-hash)+name.charCodeAt(i);
-    hash|=0;
-  }
-
-  return WHEEL[Math.abs(hash)%WHEEL.length];
-}
   var TABS=["Classement","Progression","Risques","Podium"];
   var ZONES=[
     {key:"platdupied",label:"PLAT DU PIED", sub:"Prudent · surperforme",     c:"#C8A0C4",x1:-10,x2:50,y1:0,  y2:55,  corner:{top:28,left:52},   align:"left"},
@@ -899,7 +890,7 @@ console.log(progData[0]);
         {tab==="Classement"&&<div style={{background:P.card,padding:"18px 22px"}}>
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             {players.slice(0,3).map(function(p,i){
-              var pCol=colorFromName(p.name);
+              var pCol=WHEEL[players.indexOf(p)%WHEEL.length];
               var gs=[pCol+"30",pCol+"30",pCol+"30"];
               var cs=[pCol,pCol,pCol];
               return<div key={p.name} style={{flex:1,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
@@ -1114,7 +1105,7 @@ var active=
   focused.indexOf(p.name)>=0;
         var selected=focused.indexOf(p.name)>=0;
 
-        var color=colorFromName(p.name);
+        var color=WHEEL[i%WHEEL.length];
 
         return(
 
@@ -1295,7 +1286,7 @@ var active=
             <p className="mono" style={{color:P.muted,fontSize:7,letterSpacing:"0.18em"}}>SÉLECTIONNER UN JOUEUR</p>
             <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
               {players.map(function(p,i){
-                var color=colorFromName(p.name);
+                var col=WHEEL[i%WHEEL.length];
                 var iF=focusedR.indexOf(p.name)>=0;
                 return<button key={p.name} onClick={function(){setFocusedR(function(prev){
                   if(prev.indexOf(p.name)>=0) return prev.filter(function(x){return x!==p.name;});
