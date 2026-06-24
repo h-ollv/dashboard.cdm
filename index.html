@@ -893,6 +893,7 @@ console.log(progData[0]);
               var pCol=WHEEL[players.indexOf(p)%WHEEL.length];
               var gs=[pCol+"30",pCol+"30",pCol+"30"];
               var cs=[pCol,pCol,pCol];
+              var baseBg = gs[i];
               return<div key={p.name} style={{flex:1,padding:"14px 16px",background:gs[i],position:"relative",overflow:"hidden"}}>
                 <span className="mono" style={{position:"absolute",top:2,right:8,fontSize:32,fontWeight:700,color:cs[i]+"22",lineHeight:1}}>{i+1}</span>
                 <p className="serif" style={{color:P.text,fontSize:24,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>
@@ -939,7 +940,8 @@ console.log(progData[0]);
 </span>
 
   {p.boosters>0&&
-    <span style={{marginLeft:6,background:"#F7F4EF",padding:"1px 5px"}}>
+    <span style={{marginLeft:6,background: baseBg,
+color: cs[i],padding:"1px 5px"}}>
       +{Math.round(p.boosters/50)} BOOST
     </span>
   }
@@ -948,9 +950,8 @@ console.log(progData[0]);
       marginLeft:6,
       fontSize:9,
       fontWeight:400,
-      padding:"1px 5px",
-      background:"#F7F4EF",
-      color:"#9C9A97"
+      padding:"1px 5px",background: baseBg,
+color: cs[i],
     }}>
       {p.streakHot} 🔥
     </span>
@@ -961,9 +962,8 @@ console.log(progData[0]);
       marginLeft:6,
       fontSize:9,
       fontWeight:400,
-      padding:"1px 5px",
-      background:"#F7F4EF",
-      color:"#9C9A97"
+      padding:"1px 5px",background: baseBg,
+color: cs[i],
     }}>
       {p.streakCold} 🧊
     </span>
