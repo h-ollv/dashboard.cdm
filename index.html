@@ -418,7 +418,7 @@ function cumPtsMatch(matches,n){
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var risk=rawAll[classement.indexOf(e)];
       var a10=minmax(audArr,risk.audaceRaw);
-      var p10=minmax(perfArr,risk.perfRaw);
+      var p10=Math.round(risk.perfRaw);
       var pr10=minmax(precArr,risk.precRaw);
       var v10=minmax(volArr,risk.volRaw);
       var arch=getArchetype(a10,p10,pr10,v10);
