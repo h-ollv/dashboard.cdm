@@ -121,6 +121,7 @@ function parsePlayerSheet(rows){
   flush(curPoule);
   return{name:name.trim()||null,matches:matches};
 }
+function norm_str(s){ return s!=null?s.toString().trim():''; }
 function parsePlayerSheet2(rows){
   var name=norm_str((rows[0]&&rows[0][1])||'');
   if(name.startsWith('Joueur :')) name=name.replace('Joueur :','').trim();
