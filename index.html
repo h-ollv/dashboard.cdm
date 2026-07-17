@@ -31,6 +31,12 @@ var PLAYER_SHEETS = [
   "Laura 1","Greg 1","Nikola 1","Paco 1","Cyrille 1","Joris 1","Steph 1","Mathys 1",
   "Aymeric 1","Kalash 1","Jess 1","Hugo.O 1"
 ];
+var PLAYER_SHEETS_2=[
+  "Dams 2","Stan 2","Léna 2","Chloé 2","Jeje 2","Clara 2","Micka 2","Ricco 2",
+  "Noe 2","Goyt 2","Pata 2","Marina 2","Vero 2","Erwan 2","Hugo 2","Shervan 2",
+  "Laura 2","Greg 2","Nikola 2","Paco 2","Cyrille 2","Joris 2","Mathys 2","Steph 2",
+  "kalash 2","Aymeric 2","Jess 2","Hugo.o 2"
+];
 
 function norm(s){return s?s.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim():'';}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
@@ -115,7 +121,39 @@ function parsePlayerSheet(rows){
   flush(curPoule);
   return{name:name.trim()||null,matches:matches};
 }
-
+function parsePlayerSheet2(rows){
+  var name=norm_str((rows[0]&&rows[0][1])||'');
+  if(name.startsWith('Joueur :')) name=name.replace('Joueur :','').trim();
+  if(name==='Hugo.O'||name==='Hugo.o') name='Hugo O.';
+  var matches=[];
+  for(var i=3;i<rows.length;i++){
+    var row=rows[i]||[];
+    var date=row[2],rencontre=row[3],equipes=row[4],prono=norm_str(row[5]);
+    var score_pred=norm_str(row[6]),booster=norm_str(row[7]),cote=norm_str(row[8]);
+    var vainqueur=norm_str(row[9]),result_score=norm_str(row[10]);
+    var booster_valide=row[11],points=row[12]||0;
+    if(!rencontre||!equipes) continue;
+    var dateStr=date instanceof Date?date.toISOString().slice(0,10):norm_str(date).slice(0,10);
+    var played=!!(vainqueur&&vainqueur!=='...'&&vainqueur!=='null');
+    var correct=false;
+    if(played&&prono&&prono!=='...'){
+      var pn=prono.toLowerCase(),vn=vainqueur.toLowerCase();
+      var pnNul=(pn==='n'||pn==='nul'),vnNul=(vn==='n'||vn==='nul');
+      if(pnNul&&vnNul) correct=true;
+      else if(!pnNul&&!vnNul&&pn===vn) correct=true;
+    }
+    var bv=typeof booster_valide==='number'?booster_valide:0;
+    matches.push({
+      poule:'Eliminatoires',date:dateStr,match:rencontre,
+      team_a:equipes.split(' - ')[0]||null,team_a_n:null,
+      team_b:equipes.split(' - ')[1]||null,team_b_n:null,
+      prono:prono,scorePred:score_pred,booster:booster,cote:cote,
+      vainqueur:vainqueur,resultScore:result_score,
+      booster_pts:bv,points:points,played:played,correct:correct
+    });
+  }
+  return{name:name,matches:matches};
+}
 function getAP(m){
   var prono=m.prono;
   if(!prono||prono==='...') return null;
@@ -312,15 +350,26 @@ function getArchetype(a,p,pr,v){
 
 window.__loadAllData=function(){
   return Promise.all(
-    [fetchSheet('Classement')].concat(PLAYER_SHEETS.map(fetchSheet))
+    [fetchSheet('Equipes'),fetchSheet('Classement')]
+    .concat(PLAYER_SHEETS.map(fetchSheet))
+    .concat(PLAYER_SHEETS_2.map(fetchSheet))
   ).then(function(results){
-    var parsed=parseClassement(results[0]);
+    var equipesRows=results[0],classementRows=results[1];
+    var playerRows1=results.slice(2,2+PLAYER_SHEETS.length);
+    var playerRows2=results.slice(2+PLAYER_SHEETS.length);
+    var parsed=parseClassement(classementRows);
     var classement=parsed.classement,qualifMap=parsed.qualifMap;
 
     var pData={};
-    results.slice(1).forEach(function(rows){
+    playerRows1.forEach(function(rows){
       var p=parsePlayerSheet(rows);
       if(p.name) pData[norm(p.name)]=p.matches;
+    });
+    playerRows2.forEach(function(rows){
+      var p=parsePlayerSheet2(rows);
+      if(!p.name) return;
+      var key=norm(p.name);
+      pData[key]=(pData[key]||[]).concat(p.matches);
     });
 
     var socialMap={};
