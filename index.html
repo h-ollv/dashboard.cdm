@@ -43,7 +43,8 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
 
 function fetchSheet(name){
-  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(name);
+  var encoded=name.split('').map(function(c){return c.charCodeAt(0)>127?encodeURIComponent(c):c;}).join('');
+  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encoded;
   return fetch(url).then(function(r){return r.text();}).then(function(t){
     var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
     if(!m) throw new Error('Réponse invalide pour "'+name+'"');
