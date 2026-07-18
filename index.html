@@ -43,8 +43,7 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function toNum(v){var n=parseFloat(v);return isNaN(n)?0:n;}
 
 function fetchSheet(name){
-  var encoded=name.split('').map(function(c){return c.charCodeAt(0)>127?encodeURIComponent(c):c;}).join('');
-  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encoded;
+  var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json&headers=0&sheet='+encodeURIComponent(name).replace(/%20/g,'+');
   return fetch(url).then(function(r){return r.text();}).then(function(t){
     var m=t.match(/setResponse\(([\s\S]*)\);?\s*$/);
     if(!m) throw new Error('Réponse invalide pour "'+name+'"');
@@ -354,7 +353,7 @@ window.__loadAllData=function(){
   return Promise.all(
     [fetchSheet('Equipes'),fetchSheet('Classement')]
     .concat(PLAYER_SHEETS.map(fetchSheet))
-    .concat(PLAYER_SHEETS_2.map(fetchSheet))
+    .concat(PLAYER_SHEETS_2.map(function(s){return fetchSheet(s).catch(function(){return[];});}))
   ).then(function(results){
     var equipesRows=results[0],classementRows=results[1];
     var playerRows1=results.slice(2,2+PLAYER_SHEETS.length);
@@ -399,8 +398,7 @@ Object.values(pData).forEach(function(matches){
     var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
     var refM=pData[refKey]||[];
 
-    var today=new Date().toISOString().slice(0,10);
-    var nMatchsJoues=refM.filter(function(m){return m.played&&m.date&&m.date<=today;}).length;
+    var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
 
     var byDate={};
 refM.forEach(function(m){
@@ -470,7 +468,7 @@ function cumPtsMatch(matches,n){
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var risk=rawAll[classement.indexOf(e)];
       var a10=minmax(audArr,risk.audaceRaw);
-      var p10=minmax(perfArr,risk.perfRaw);
+      var p10=Math.round(risk.perfRaw);
       var pr10=minmax(precArr,risk.precRaw);
       var v10=minmax(volArr,risk.volRaw);
       var arch=getArchetype(a10,p10,pr10,v10);
@@ -514,7 +512,7 @@ playedM.forEach(function(m){
       return{
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
-        boosters:booster_pts, boostersCount:e.boosters||0,
+        boosters:booster_pts,
         audace:Math.round(risk.audaceRaw), adjR:Math.round((risk.perfRaw/100*170)-85),
         audace10:a10, perf10:p10, precision10:pr10, volatilite10:v10,
         archetype:arch.name, modifier:modifier,
