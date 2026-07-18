@@ -398,7 +398,8 @@ Object.values(pData).forEach(function(matches){
     var refKey=Object.keys(pData).find(function(k){return pData[k].length>0;})||'';
     var refM=pData[refKey]||[];
 
-    var nMatchsJoues=refM.filter(function(m){return m.played;}).length;
+    var today=new Date().toISOString().slice(0,10);
+    var nMatchsJoues=refM.filter(function(m){return m.played&&m.date&&m.date<=today;}).length;
 
     var byDate={};
 refM.forEach(function(m){
@@ -468,7 +469,7 @@ function cumPtsMatch(matches,n){
       var booster_pts=matches.reduce(function(s,m){return s+(m.booster_pts||0);},0);
       var risk=rawAll[classement.indexOf(e)];
       var a10=minmax(audArr,risk.audaceRaw);
-      var p10=Math.round(risk.perfRaw);
+      var p10=minmax(perfArr,risk.perfRaw);
       var pr10=minmax(precArr,risk.precRaw);
       var v10=minmax(volArr,risk.volRaw);
       var arch=getArchetype(a10,p10,pr10,v10);
@@ -512,7 +513,7 @@ playedM.forEach(function(m){
       return{
         name:e.name, points:total_points,
         correct:e.correct||0, exact:e.exact||0,
-        boosters:booster_pts,
+        boosters:booster_pts, boostersCount:e.boosters||0,
         audace:Math.round(risk.audaceRaw), adjR:Math.round((risk.perfRaw/100*170)-85),
         audace10:a10, perf10:p10, precision10:pr10, volatilite10:v10,
         archetype:arch.name, modifier:modifier,
